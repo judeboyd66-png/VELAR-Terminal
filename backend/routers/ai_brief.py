@@ -5,12 +5,11 @@ Feeds live market prices + FRED data into Llama 3.3 70B → structured trading b
 """
 import os
 import json
+import requests
 from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
 from diskcache import Cache
-import yfinance as yf
-from fredapi import Fred
 
 load_dotenv(Path(__file__).parent.parent / ".env", override=True)
 
@@ -40,15 +39,25 @@ FRED_SERIES = {
 }
 
 
+_STOOQ = {'SPY':'spy.us','QQQ':'qqq.us','^VIX':'VIXCLS','^TNX':'DGS10','DX-Y.NYB':'dx.f','USDJPY=X':'usdjpy','CL=F':'cl.f','GC=F':'xauusd','EURUSD=X':'eurusd'}
+_HEADERS = {'User-Agent': 'Mozilla/5.0'}
+
 def _fetch_market_snapshot():
     rows = []
+    from datetime import datetime, timedelta
+    today = datetime.now(); past = today - timedelta(days=7)
     for sym, label in QUOTE_SYMBOLS.items():
+        stooq_sym = _STOOQ.get(sym)
+        if not stooq_sym:
+            continue
         try:
-            t = yf.Ticker(sym)
-            hist = t.history(period="2d")
-            if len(hist) >= 2:
-                prev  = hist["Close"].iloc[-2]
-                close = hist["Close"].iloc[-1]
+            r = requests.get('https://stooq.com/q/d/l/',
+                params={'s': stooq_sym, 'd1': past.strftime('%Y%m%d'), 'd2': today.strftime('%Y%m%d'), 'i': 'd'},
+                headers=_HEADERS, timeout=6)
+            lines = [l for l in r.text.strip().split('\n') if l and ',' in l and not l.startswith('Date')]
+            if len(lines) >= 2:
+                close = float(lines[-1].split(',')[3])
+                prev  = float(lines[-2].split(',')[3])
                 pct   = (close - prev) / prev * 100
                 rows.append(f"{label}: {close:.2f} ({pct:+.2f}%)")
         except Exception:
@@ -58,22 +67,23 @@ def _fetch_market_snapshot():
 
 def _fetch_fred_snapshot():
     rows = []
-    try:
-        fred = Fred(api_key=FRED_KEY)
-        for series_id, label in FRED_SERIES.items():
-            try:
-                s = fred.get_series(series_id, observation_start="2023-01-01").dropna()
-                if series_id == "CPIAUCSL" and len(s) >= 13:
-                    # Calculate true YoY % change
-                    val = (s.iloc[-1] - s.iloc[-13]) / s.iloc[-13] * 100
-                    rows.append(f"{label}: {val:.2f}%")
-                else:
-                    val = s.iloc[-1]
-                    rows.append(f"{label}: {val:.2f}")
-            except Exception:
-                pass
-    except Exception:
-        pass
+    if not FRED_KEY:
+        return rows
+    for series_id, label in FRED_SERIES.items():
+        try:
+            r = requests.get('https://api.stlouisfed.org/fred/series/observations',
+                params={'series_id': series_id, 'api_key': FRED_KEY, 'sort_order': 'desc',
+                        'limit': 14, 'file_type': 'json'}, timeout=8)
+            obs = [o for o in r.json().get('observations', []) if o.get('value', '.') != '.']
+            if not obs:
+                continue
+            if series_id == "CPIAUCSL" and len(obs) >= 13:
+                val = (float(obs[0]['value']) - float(obs[12]['value'])) / float(obs[12]['value']) * 100
+                rows.append(f"{label}: {val:.2f}%")
+            else:
+                rows.append(f"{label}: {float(obs[0]['value']):.2f}")
+        except Exception:
+            pass
     return "\n".join(rows)
 
 
