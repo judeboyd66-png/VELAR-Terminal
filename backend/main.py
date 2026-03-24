@@ -25,9 +25,20 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    # Production — update with your real Vercel URL after first deploy
+    "https://velar-terminal.vercel.app",
+    "https://velar-terminal-judeboyd66-png.vercel.app",
+]
+# Allow all *.vercel.app preview URLs during development
+ALLOWED_ORIGIN_REGEX = r"https://velar.*\.vercel\.app"
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=ALLOWED_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
