@@ -1,12 +1,10 @@
 """
-FRED data service — wraps fredapi with caching.
+FRED data service — direct REST API calls, no pandas/fredapi dependency.
 Set FRED_API_KEY in .env to enable. Without it, falls back to mock data.
 """
 from __future__ import annotations
 
-import os
-import pandas as pd
-import diskcache
+import os, requests, diskcache
 from pathlib import Path
 from typing import List, Optional
 from dotenv import load_dotenv
@@ -15,11 +13,11 @@ load_dotenv()
 
 CACHE_DIR = Path(__file__).parent.parent / ".cache"
 CACHE_DIR.mkdir(exist_ok=True)
-cache = diskcache.Cache(str(CACHE_DIR))
+cache    = diskcache.Cache(str(CACHE_DIR))
+CACHE_TTL = 60 * 60 * 4   # 4 hours
 
-CACHE_TTL = 60 * 60 * 4  # 4 hours for macro series
+FRED_BASE = "https://api.stlouisfed.org/fred/series/observations"
 
-# FRED series IDs for key macro indicators
 SERIES_MAP = {
     "FEDFUNDS":    "Effective Federal Funds Rate",
     "T10Y2Y":      "10Y-2Y Spread",
@@ -38,38 +36,33 @@ SERIES_MAP = {
 }
 
 
-def _get_fred_client():
-    api_key = os.getenv("FRED_API_KEY")
-    if not api_key:
-        return None
-    try:
-        from fredapi import Fred
-        return Fred(api_key=api_key)
-    except ImportError:
-        return None
-
-
 def get_series(series_id: str, start: Optional[str] = None) -> List[dict]:
     key = f"fred:{series_id}:{start}"
     cached = cache.get(key)
     if cached:
         return cached
 
-    fred = _get_fred_client()
-    if fred is None:
-        # Fall back to mock data if no FRED key
+    api_key = os.getenv("FRED_API_KEY")
+    if not api_key:
         return _mock_series(series_id)
 
     try:
-        kwargs = {}
+        params = {
+            "series_id":  series_id,
+            "api_key":    api_key,
+            "file_type":  "json",
+            "sort_order": "asc",
+        }
         if start:
-            kwargs["observation_start"] = start
+            params["observation_start"] = start
 
-        s = fred.get_series(series_id, **kwargs)
-        s = s.dropna()
+        r = requests.get(FRED_BASE, params=params, timeout=12)
+        r.raise_for_status()
+        obs = r.json().get("observations", [])
         result = [
-            {"date": str(idx.date()), "value": round(float(val), 4)}
-            for idx, val in s.items()
+            {"date": o["date"], "value": round(float(o["value"]), 4)}
+            for o in obs
+            if o.get("value", ".") != "."
         ]
         cache.set(key, result, expire=CACHE_TTL)
         return result
@@ -102,9 +95,8 @@ def get_yield_curve() -> List[dict]:
 
 
 def _mock_series(series_id: str) -> List[dict]:
-    """Generate realistic mock data when FRED API is unavailable."""
+    """Realistic mock data when FRED API is unavailable."""
     import random
-    import math
     from datetime import datetime, timedelta
 
     base_map = {
@@ -115,13 +107,11 @@ def _mock_series(series_id: str) -> List[dict]:
         "AHETPI": 34.5, "DCOILWTICO": 78.0, "DEXJPUS": 157.5,
         "IRLTLT01JPM156N": 1.05, "DTWEXBGS": 104.0,
     }
-
     base = base_map.get(series_id, 100.0)
-    vol = base * 0.01
-    n = 260
+    vol  = base * 0.01
+    n    = 260
     start = datetime(2021, 1, 1)
-    out = []
-    v = base * 0.6  # start lower, trend up
+    out, v = [], base * 0.6
     for i in range(n):
         v = v + (base - v) * 0.015 + random.gauss(0, vol)
         d = start + timedelta(days=i * 5)
