@@ -11,13 +11,6 @@ const HEROES = [
   { symbol: 'GC=F',   label: 'Gold',      type: 'pct'   },
 ]
 
-const FALLBACK: Record<string, { price: number; changePct: number; change: number }> = {
-  'SPY':   { price: 568.40, changePct:  0.82, change:  4.62 },
-  '^VIX':  { price: 18.40,  changePct: -2.10, change: -0.40 },
-  '^TNX':  { price: 4.35,   changePct:  0.03, change:  0.03 },
-  'GC=F':  { price: 3010,   changePct:  0.18, change:  5.40 },
-}
-
 function fmtPrice(price: number, suffix = ''): string {
   if (price >= 1000) return price.toLocaleString('en-US', { maximumFractionDigits: 0 }) + suffix
   return price.toFixed(2) + suffix
@@ -32,7 +25,7 @@ export function HeroStrip() {
     retry: 1,
   })
 
-  const get = (sym: string) => quotes?.find(q => q.symbol === sym) ?? FALLBACK[sym]
+  const get = (sym: string) => quotes?.find(q => q.symbol === sym)
 
   return (
     <div
@@ -42,17 +35,23 @@ export function HeroStrip() {
       <div className="grid grid-cols-4">
         {HEROES.map((h, i) => {
           const d = get(h.symbol)
-          const isUp   = d.changePct > 0
-          const isDown = d.changePct < 0
-          const color  = isUp ? 'var(--sage)' : isDown ? 'var(--coral)' : 'var(--t3)'
+          const changePct = d?.changePct ?? null
+          const price = d?.price ?? null
+          const isUp   = (changePct ?? 0) > 0
+          const isDown = (changePct ?? 0) < 0
+          const color  = changePct == null ? 'var(--t3)' : isUp ? 'var(--sage)' : isDown ? 'var(--coral)' : 'var(--t3)'
 
-          const mainNumber = h.type === 'pct'
-            ? `${isUp ? '+' : ''}${d.changePct.toFixed(2)}%`
-            : fmtPrice(d.price, h.suffix)
+          const mainNumber = price == null || changePct == null
+            ? '—'
+            : h.type === 'pct'
+              ? `${isUp ? '+' : ''}${changePct.toFixed(2)}%`
+              : fmtPrice(price, h.suffix)
 
-          const sub = h.type === 'pct'
-            ? fmtPrice(d.price)
-            : `${isUp ? '+' : ''}${d.changePct.toFixed(2)}%`
+          const sub = price == null || changePct == null
+            ? 'Awaiting live feed'
+            : h.type === 'pct'
+              ? fmtPrice(price)
+              : `${isUp ? '+' : ''}${changePct.toFixed(2)}%`
 
           return (
             <motion.div

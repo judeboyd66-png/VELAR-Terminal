@@ -5,7 +5,7 @@ import { api } from '@/lib/api'
 
 // ─── Shared symbol list — must match OverviewLeft + SidePanel exactly ─────────
 export const OVERVIEW_SYMS = [
-  '^TNX', '^VIX', '^MOVE', 'DX-Y.NYB', 'SPY', 'QQQ',
+  'US02Y', '^TNX', '^VIX', '^MOVE', 'DX-Y.NYB', 'SPY', 'QQQ',
   'GC=F', 'CL=F', 'USDJPY=X', 'BTC-USD', 'EURUSD=X', 'HYG',
 ]
 

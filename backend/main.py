@@ -28,6 +28,10 @@ app = FastAPI(
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:3002",
+    "http://127.0.0.1:3002",
+    "http://localhost:3003",
+    "http://127.0.0.1:3003",
     # Production — update with your real Vercel URL after first deploy
     "https://velar-terminal.vercel.app",
     "https://velar-terminal-judeboyd66-png.vercel.app",

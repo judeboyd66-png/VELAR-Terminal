@@ -27,7 +27,7 @@ export function ContainerScroll({
 
   return (
     <div
-      className="h-[56rem] md:h-[72rem] flex items-center justify-center relative px-4 md:px-16"
+      className="min-h-[58rem] md:h-[72rem] flex items-center justify-center relative px-4 md:px-16"
       ref={containerRef}
     >
       <div className="py-8 md:py-32 w-full relative" style={{ perspective: '1200px' }}>
@@ -42,11 +42,11 @@ export function ContainerScroll({
         {/* Card */}
         <motion.div
           style={{
-            rotateX: rotate,
+            rotateX: isMobile ? 0 : rotate,
             scale,
             boxShadow: '0 0 0 1px var(--line), 0 40px 80px rgba(0,0,0,0.55), 0 16px 32px rgba(0,0,0,0.35)',
           }}
-          className="max-w-5xl -mt-8 mx-auto h-[28rem] md:h-[38rem] w-full rounded-2xl overflow-hidden"
+          className="max-w-5xl -mt-2 md:-mt-8 mx-auto min-h-[42rem] md:h-[38rem] w-full rounded-2xl overflow-hidden"
         >
           {/* Inner chrome */}
           <div

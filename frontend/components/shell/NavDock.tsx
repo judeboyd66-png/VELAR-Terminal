@@ -24,7 +24,7 @@ export function NavDock() {
   }
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-0.5 md:gap-1 overflow-x-auto no-scrollbar max-w-full">
       {SECTIONS.map(({ href, label, Icon }) => {
         const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
         const isHov = hovered === href
@@ -37,7 +37,7 @@ export function NavDock() {
               onHoverEnd={() => setHovered(null)}
               whileHover={{ scale: 1.35 }}
               transition={{ type: 'spring', stiffness: 380, damping: 20 }}
-              className="flex items-center justify-center w-12 h-12 rounded-xl outline-none cursor-pointer"
+              className="flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-xl outline-none cursor-pointer shrink-0"
               style={{
                 background: active ? 'var(--item-active)' : 'transparent',
                 border: 'none',

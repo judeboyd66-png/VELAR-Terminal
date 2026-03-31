@@ -34,6 +34,8 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.setSize(w, h)
     renderer.setClearColor(fogColor, 0)
+    renderer.domElement.style.pointerEvents = 'none'
+    renderer.domElement.style.userSelect = 'none'
     container.appendChild(renderer.domElement)
 
     const positions: number[] = []

@@ -67,23 +67,6 @@ function fmtBig(n: number | null): string {
   return `$${n.toFixed(0)}`
 }
 
-// ─── Fallback articles ────────────────────────────────────────────────────────
-
-const FALLBACK: NewsArticle[] = [
-  { title: 'Fed signals extended pause as core inflation re-accelerates toward 3.2%', source: 'Reuters', tag: 'Fed / Rates', impact: 'high', ts: Date.now()/1000 - 7200, published: '', summary: 'Federal Reserve officials indicated they are in no rush to cut rates as inflation data continues to surprise to the upside.', url: '#' },
-  { title: 'OPEC+ extends production cuts through Q3 as demand outlook weakens', source: 'FT', tag: 'Oil / Energy', impact: 'high', ts: Date.now()/1000 - 14400, published: '', summary: 'The cartel agreed to maintain existing output restrictions amid signs of softening global demand, particularly from China.', url: '#' },
-  { title: 'BOJ hike speculation grows — JPY surges on yield differential narrowing', source: 'Bloomberg', tag: 'FX / Japan', impact: 'high', ts: Date.now()/1000 - 3600, published: '', summary: 'Japanese yen strengthened sharply as traders priced in an earlier-than-expected rate hike from the Bank of Japan.', url: '#' },
-  { title: 'Jobless claims tick to 234K — fourth consecutive weekly increase', source: 'CNBC', tag: 'Labor', impact: 'medium', ts: Date.now()/1000 - 21600, published: '', summary: 'Initial unemployment claims rose for the fourth straight week, adding to evidence of a gradual labor market cooling.', url: '#' },
-  { title: 'Russia advances in eastern Ukraine as NATO warns of escalation risk', source: 'BBC World', tag: 'Conflicts', impact: 'high', ts: Date.now()/1000 - 5400, published: '', summary: 'Russian forces made incremental gains near Kharkiv, prompting fresh warnings from Western allies.', url: '#' },
-  { title: 'OpenAI launches GPT-5 with multimodal reasoning capabilities', source: 'TechCrunch', tag: 'AI', impact: 'medium', ts: Date.now()/1000 - 9000, published: '', summary: 'The latest model significantly outperforms its predecessor on complex reasoning tasks.', url: '#' },
-  { title: 'Bitcoin surges above $72K as ETF inflows hit monthly record', source: 'CoinDesk', tag: 'Crypto', impact: 'medium', ts: Date.now()/1000 - 12600, published: '', summary: 'Spot Bitcoin ETFs saw over $1.2B in combined inflows this week, driving BTC to a new all-time high.', url: '#' },
-  { title: 'Gold hits record $3,200/oz on safe-haven demand', source: 'Kitco', tag: 'Commodities', impact: 'medium', ts: Date.now()/1000 - 32400, published: '', summary: 'Gold reached an all-time high as investors sought protection from geopolitical uncertainty and dollar weakness.', url: '#' },
-  { title: 'Oil drops 4% as Iran-US talks ease supply disruption fears', source: 'OilPrice.com', tag: 'Oil / Energy', impact: 'medium', ts: Date.now()/1000 - 18000, published: '', summary: 'Brent crude fell sharply after reports suggested diplomatic progress could ease sanctions on Iranian oil exports.', url: '#' },
-  { title: 'PMI data signals continued manufacturing contraction in eurozone', source: 'FT', tag: 'Global Macro', impact: 'low', ts: Date.now()/1000 - 43200, published: '', summary: 'The composite PMI remained below the 50 expansion threshold for the eighth consecutive month.', url: '#' },
-  { title: 'Ethereum staking yield compresses as validator count hits 1M', source: 'CoinDesk', tag: 'Crypto', impact: 'low', ts: Date.now()/1000 - 54000, published: '', summary: 'The surge in validators has diluted per-validator rewards, pushing annualized yields toward 3.5%.', url: '#' },
-  { title: 'Private credit spreads widen as leveraged loan market shows stress', source: 'WSJ', tag: 'Credit / Rates', impact: 'medium', ts: Date.now()/1000 - 28800, published: '', summary: 'Rising default rates in lower-rated tranches are beginning to spill into broader credit markets.', url: '#' },
-]
-
 // ─── FilterDock ────────────────────────────────────────────────────────────────
 
 function FilterDock({ activeCategory, setCategory, activeImpact, setImpact }: {
@@ -443,7 +426,7 @@ export function NewsView() {
   })
 
   const articles = useMemo(() => {
-    const raw = data && data.length > 0 ? data : FALLBACK
+    const raw = data ?? []
     const norm = raw.map(a => ({ ...a, impact: a.impact ?? 'low' }))
     let filtered = activeCategory === 'All'
       ? norm

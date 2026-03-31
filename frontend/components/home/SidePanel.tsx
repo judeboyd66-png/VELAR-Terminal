@@ -8,7 +8,7 @@ import { OVERVIEW_SYMS } from '@/components/home/MacroSystemTiles'
 
 const WATCH_ORDER = [
   'BTC-USD', 'EURUSD=X', 'QQQ', 'SPY', 'GC=F',
-  'DX-Y.NYB', '^TNX', 'CL=F', 'USDJPY=X', '^VIX',
+  'DX-Y.NYB', '^TNX', 'CL=F', 'USDJPY=X', '^VIX', 'US02Y',
 ]
 
 const META: Record<string, { label: string; suffix?: string; dec?: number }> = {
@@ -22,6 +22,7 @@ const META: Record<string, { label: string; suffix?: string; dec?: number }> = {
   'CL=F':      { label: 'WTI',    dec: 2 },
   'USDJPY=X':  { label: 'USDJPY', dec: 2 },
   '^VIX':      { label: 'VIX',    dec: 2 },
+  'US02Y':     { label: 'US02Y',  suffix: '%', dec: 2 },
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -131,15 +132,6 @@ export function SidePanel() {
     retry: 1,
   })
 
-  // — US02Y from FRED ─────────────────────────────────────────────────────────
-  const { data: t2y } = useQuery({
-    queryKey: ['fred-dgs2-ov'],
-    queryFn:  () => api.macro.series('DGS2', '2024-01-01').then(r => {
-      const a = r.data; return a.length ? a[a.length - 1].value : null
-    }),
-    staleTime: 60 * 60_000,
-  })
-
   // — Sparklines: 1mo daily history per asset (cached 1hr) ───────────────────
   const sparkQueries = WATCH_ORDER.map(sym =>
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -189,27 +181,6 @@ export function SidePanel() {
           )
         })}
 
-        {/* US02Y — FRED only, no sparkline available */}
-        <div
-          className="flex items-center gap-2 py-[8px] border-b"
-          style={{ borderColor: 'var(--line2)' }}
-        >
-          <span
-            className="text-[10px] font-semibold tracking-[0.07em] uppercase shrink-0 w-[46px]"
-            style={{ color: 'var(--taupe)' }}
-          >
-            US02Y
-          </span>
-          <div className="flex-1" />
-          <div className="text-right shrink-0">
-            <div
-              className="text-[12px] font-semibold tabular-nums leading-none"
-              style={{ letterSpacing: '-0.02em', color: 'var(--t1)' }}
-            >
-              {t2y != null ? `${t2y.toFixed(2)}%` : '—'}
-            </div>
-          </div>
-        </div>
       </div>
     </aside>
   )

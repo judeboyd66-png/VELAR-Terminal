@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-CACHE_DIR = Path(__file__).parent.parent / ".cache"
+CACHE_DIR = Path("/tmp/velar_fred_cache")
 CACHE_DIR.mkdir(exist_ok=True)
 cache    = diskcache.Cache(str(CACHE_DIR))
 CACHE_TTL = 60 * 60 * 4   # 4 hours

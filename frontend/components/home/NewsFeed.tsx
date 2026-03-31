@@ -11,15 +11,6 @@ function timeAgo(ts: number): string {
   return `${Math.round(diff / 86400)}d ago`
 }
 
-const FALLBACK: NewsArticle[] = [
-  { title: 'Fed signals extended pause as core inflation re-accelerates toward 3.2%', source: 'Reuters', tag: 'Fed / Rates', ts: Date.now()/1000 - 7200, published: '', summary: '', url: '#' },
-  { title: 'OPEC+ extends production cuts through Q3 as demand outlook weakens', source: 'Financial Times', tag: 'Oil / Energy', ts: Date.now()/1000 - 14400, published: '', summary: '', url: '#' },
-  { title: 'BOJ hike speculation grows — JPY surges on yield differential narrowing', source: 'Bloomberg', tag: 'FX / Japan', ts: Date.now()/1000 - 3600, published: '', summary: '', url: '#' },
-  { title: 'Jobless claims tick to 234K — fourth consecutive weekly increase', source: 'CNBC', tag: 'Labor', ts: Date.now()/1000 - 21600, published: '', summary: '', url: '#' },
-  { title: 'Private credit spreads widen as leveraged loan market shows first stress signs', source: 'WSJ', tag: 'Credit', ts: Date.now()/1000 - 28800, published: '', summary: '', url: '#' },
-  { title: 'Dollar weakens as traders price in earlier Fed pivot amid labor softening', source: 'Reuters', tag: 'Fed / Rates', ts: Date.now()/1000 - 32400, published: '', summary: '', url: '#' },
-]
-
 function NewsRow({ article, index, featured }: { article: NewsArticle; index: number; featured?: boolean }) {
   return (
     <motion.a
@@ -76,7 +67,7 @@ export function NewsFeed({ maxItems }: { maxItems?: number }) {
     retry: 1,
   })
 
-  const articles = (data && data.length > 0 ? data : FALLBACK).slice(0, limit)
+  const articles = (data ?? []).slice(0, limit)
 
   return (
     <div>
@@ -106,11 +97,17 @@ export function NewsFeed({ maxItems }: { maxItems?: number }) {
           ))}
         </div>
       ) : (
-        <div>
-          {articles.map((a, i) => (
-            <NewsRow key={i} article={a} index={i} featured={i === 0} />
-          ))}
-        </div>
+        articles.length > 0 ? (
+          <div>
+            {articles.map((a, i) => (
+              <NewsRow key={i} article={a} index={i} featured={i === 0} />
+            ))}
+          </div>
+        ) : (
+          <div className="py-10 text-[12px]" style={{ color: 'var(--t4)' }}>
+            Live news feed unavailable right now.
+          </div>
+        )
       )}
     </div>
   )

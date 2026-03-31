@@ -17,6 +17,7 @@ cache  = Cache("/tmp/signal_cache")
 log    = logging.getLogger(__name__)
 
 LABEL_MAP = {
+    'US02Y':     '2Y',
     'SPY':       'S&P 500',
     'QQQ':       'Nasdaq',
     '^VIX':      'VIX',
@@ -64,12 +65,14 @@ _STOOQ_HIST = {
 
 # FRED historical series map (for symbols Stooq doesn't carry historically)
 _FRED_HIST = {
+    'US02Y': 'DGS2',
     '^TNX': 'DGS10',
     '^VIX': 'VIXCLS',
 }
 
 # FRED series for symbols Stooq doesn't handle well
 _FRED_MAP = {
+    'US02Y': 'DGS2',
     '^TNX': 'DGS10',
     '^VIX': 'VIXCLS',
 }
