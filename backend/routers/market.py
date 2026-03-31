@@ -217,50 +217,60 @@ def _fred_series(symbol: str, period: str) -> list[dict]:
         return []
 
 
-def _stooq_series(symbol: str, period: str, interval: str) -> list[dict]:
-    """Historical series from Stooq /q/d/l/."""
-    stooq_sym = _STOOQ_HIST.get(symbol)
-    if not stooq_sym:
-        return []
+def _yf_series(symbol: str, period: str, interval: str) -> list[dict]:
+    """Historical OHLC from Yahoo Finance v8 chart endpoint. No API key needed."""
+    # Map our period strings to Yahoo Finance range param
+    yf_range = {
+        '1mo': '1mo', '3mo': '3mo', '6mo': '6mo',
+        '1y': '1y', '2y': '2y', '5y': '5y', '10y': '10y',
+    }.get(period, '1y')
+    # Map interval — Yahoo uses 1d, 1wk, 1mo
+    yf_interval = {'1d': '1d', '1wk': '1wk', '1mo': '1mo'}.get(interval, '1d')
 
-    period_days = {'5d': 7, '1mo': 35, '3mo': 95, '6mo': 185, '1y': 370,
-                   '2y': 730, '5y': 1830, '10y': 3650}
-    lookback    = period_days.get(period, 370)
-    stooq_freq  = {'1d': 'd', '1wk': 'w', '1mo': 'm'}.get(interval, 'd')
-
-    end   = datetime.now()
-    start = end - timedelta(days=lookback)
     try:
+        url = f'https://query2.finance.yahoo.com/v8/finance/chart/{symbol}'
         r = requests.get(
-            'https://stooq.com/q/d/l/',
-            params={'s': stooq_sym, 'd1': start.strftime('%Y%m%d'), 'd2': end.strftime('%Y%m%d'), 'i': stooq_freq},
-            headers=_HEADERS,
-            timeout=12,
+            url,
+            params={'interval': yf_interval, 'range': yf_range, 'events': 'div,splits'},
+            headers={**_HEADERS, 'Accept': 'application/json'},
+            timeout=15,
         )
         if not r.ok:
+            log.debug(f"YF chart {symbol} HTTP {r.status_code}")
             return []
+
+        data   = r.json()
+        result = data.get('chart', {}).get('result', [])
+        if not result:
+            return []
+
+        res        = result[0]
+        timestamps = res.get('timestamp', [])
+        quote      = res.get('indicators', {}).get('quote', [{}])[0]
+        opens      = quote.get('open',  [])
+        highs      = quote.get('high',  [])
+        lows       = quote.get('low',   [])
+        closes     = quote.get('close', [])
+
         points = []
-        for line in r.text.strip().split('\n'):
-            if not line or line.startswith('Date') or ',' not in line:
+        for i, ts in enumerate(timestamps):
+            c = _safe_float(closes[i] if i < len(closes) else None)
+            if not c:
                 continue
-            parts = line.split(',')
-            # Stooq format: Date, Open, High, Low, Close[, Volume]
-            if len(parts) >= 5:
-                o = _safe_float(parts[1])
-                h = _safe_float(parts[2])
-                l = _safe_float(parts[3])
-                c = _safe_float(parts[4])
-                if c:
-                    points.append({
-                        'date':  parts[0],
-                        'open':  round(o, 4) if o else round(c, 4),
-                        'high':  round(h, 4) if h else round(c, 4),
-                        'low':   round(l, 4) if l else round(c, 4),
-                        'value': round(c, 4),
-                    })
+            o = _safe_float(opens[i] if i < len(opens) else None) or c
+            h = _safe_float(highs[i] if i < len(highs) else None) or c
+            l = _safe_float(lows[i]  if i < len(lows)  else None) or c
+            date_str = datetime.fromtimestamp(ts, tz=timezone.utc).strftime('%Y-%m-%d')
+            points.append({
+                'date':  date_str,
+                'open':  round(o, 4),
+                'high':  round(h, 4),
+                'low':   round(l, 4),
+                'value': round(c, 4),
+            })
         return points
     except Exception as e:
-        log.debug(f"Stooq series failed for {symbol}: {e}")
+        log.debug(f"YF series failed for {symbol}: {e}")
         return []
 
 
@@ -295,7 +305,7 @@ def get_series(
     period: str   = Query('1y'),
     interval: str = Query('1d'),
 ):
-    cache_key = f"series_v7_{symbol}_{period}_{interval}"
+    cache_key = f"series_v8_{symbol}_{period}_{interval}"
     cached = cache.get(cache_key)
     if cached:
         return cached
@@ -303,7 +313,7 @@ def get_series(
     if symbol in _FRED_HIST:
         result = _fred_series(symbol, period)
     else:
-        result = _stooq_series(symbol, period, interval)
+        result = _yf_series(symbol, period, interval)
     if not result:
         raise HTTPException(404, f"No data for {symbol}")
     cache.set(cache_key, result, expire=3600)
