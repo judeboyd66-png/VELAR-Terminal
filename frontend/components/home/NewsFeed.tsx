@@ -67,15 +67,16 @@ function NewsRow({ article, index, featured }: { article: NewsArticle; index: nu
   )
 }
 
-export function NewsFeed() {
+export function NewsFeed({ maxItems }: { maxItems?: number }) {
+  const limit = maxItems ?? 14
   const { data, isLoading } = useQuery({
-    queryKey: ['news-feed'],
-    queryFn: () => api.news.feed(14).then(r => r.data),
+    queryKey: ['news-feed', limit],
+    queryFn: () => api.news.feed(limit).then(r => r.data),
     staleTime: 15 * 60 * 1000,
     retry: 1,
   })
 
-  const articles = data && data.length > 0 ? data : FALLBACK
+  const articles = (data && data.length > 0 ? data : FALLBACK).slice(0, limit)
 
   return (
     <div>

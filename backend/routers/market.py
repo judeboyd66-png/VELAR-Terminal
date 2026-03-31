@@ -5,6 +5,7 @@ Sources:
   - FRED API (10Y yield, VIX) — FRED_API_KEY in .env
   - Fallback: Yahoo Finance v8 direct (if not rate-limited)
 """
+from __future__ import annotations
 import os, requests, logging, time
 from fastapi import APIRouter, Query, HTTPException
 from diskcache import Cache
@@ -56,6 +57,14 @@ _STOOQ_HIST = {
     'AUDUSD=X':  'audusd',
     'BTC-USD':   'btc.v',
     'GC=F':      'xauusd',
+    'CL=F':      'cl.f',
+    'DX-Y.NYB':  'dx.f',
+}
+
+# FRED historical series map (for symbols Stooq doesn't carry historically)
+_FRED_HIST = {
+    '^TNX': 'DGS10',
+    '^VIX': 'VIXCLS',
 }
 
 # FRED series for symbols Stooq doesn't handle well
@@ -174,13 +183,46 @@ def _fetch_quote(symbol: str) -> dict | None:
     return None
 
 
+def _fred_series(symbol: str, period: str) -> list[dict]:
+    """Historical observations from FRED for ^TNX, ^VIX etc."""
+    series_id = _FRED_HIST.get(symbol)
+    if not series_id or not _FRED_KEY:
+        return []
+    period_days = {'5d': 7, '1mo': 35, '3mo': 95, '6mo': 185, '1y': 370,
+                   '2y': 730, '5y': 1830, '10y': 3650}
+    lookback = period_days.get(period, 370)
+    start = (datetime.now() - timedelta(days=lookback)).strftime('%Y-%m-%d')
+    try:
+        r = requests.get(
+            'https://api.stlouisfed.org/fred/series/observations',
+            params={
+                'series_id': series_id, 'api_key': _FRED_KEY,
+                'observation_start': start, 'file_type': 'json',
+                'sort_order': 'asc',
+            },
+            timeout=12,
+        )
+        if not r.ok:
+            return []
+        points = []
+        for obs in r.json().get('observations', []):
+            v = _safe_float(obs.get('value'))
+            if v is not None:
+                points.append({'date': obs['date'], 'value': round(v, 4)})
+        return points
+    except Exception as e:
+        log.debug(f"FRED series failed for {symbol}: {e}")
+        return []
+
+
 def _stooq_series(symbol: str, period: str, interval: str) -> list[dict]:
     """Historical series from Stooq /q/d/l/."""
     stooq_sym = _STOOQ_HIST.get(symbol)
     if not stooq_sym:
         return []
 
-    period_days = {'5d': 7, '1mo': 35, '3mo': 95, '6mo': 185, '1y': 370, '2y': 730, '5y': 1830}
+    period_days = {'5d': 7, '1mo': 35, '3mo': 95, '6mo': 185, '1y': 370,
+                   '2y': 730, '5y': 1830, '10y': 3650}
     lookback    = period_days.get(period, 370)
     stooq_freq  = {'1d': 'd', '1wk': 'w', '1mo': 'm'}.get(interval, 'd')
 
@@ -246,7 +288,10 @@ def get_series(
     if cached:
         return cached
 
-    result = _stooq_series(symbol, period, interval)
+    if symbol in _FRED_HIST:
+        result = _fred_series(symbol, period)
+    else:
+        result = _stooq_series(symbol, period, interval)
     if not result:
         raise HTTPException(404, f"No data for {symbol}")
     cache.set(cache_key, result, expire=3600)
