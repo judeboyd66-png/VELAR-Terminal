@@ -20,6 +20,7 @@ LABEL_MAP = {
     'SPY':       'S&P 500',
     'QQQ':       'Nasdaq',
     '^VIX':      'VIX',
+    '^MOVE':     'MOVE',
     'DX-Y.NYB':  'DXY',
     'USDJPY=X':  'USDJPY',
     'CL=F':      'WTI',
@@ -174,13 +175,52 @@ def _fred_quote(symbol: str) -> dict | None:
         return None
 
 
+def _yf_rt_quote(symbol: str) -> dict | None:
+    """Real-time quote from Yahoo Finance v8 — fallback for symbols not in Stooq/FRED.
+    Used for ^MOVE (ICE BofAML MOVE index) and any other YF-only symbols.
+    """
+    try:
+        url = f'https://query2.finance.yahoo.com/v8/finance/chart/{symbol}'
+        r = requests.get(
+            url,
+            params={'interval': '1d', 'range': '5d', 'events': ''},
+            headers={**_HEADERS, 'Accept': 'application/json'},
+            timeout=10,
+        )
+        if not r.ok:
+            return None
+        data   = r.json()
+        result = data.get('chart', {}).get('result', [])
+        if not result:
+            return None
+        meta  = result[0].get('meta', {})
+        price = _safe_float(meta.get('regularMarketPrice'))
+        prev  = _safe_float(meta.get('chartPreviousClose') or meta.get('previousClose'))
+        if price is None:
+            return None
+        change     = (price - prev) if prev else 0
+        change_pct = (change / prev * 100) if prev else 0
+        return {
+            'symbol':    symbol,
+            'label':     LABEL_MAP.get(symbol, symbol),
+            'price':     round(price, 4),
+            'change':    round(change, 4),
+            'changePct': round(change_pct, 3),
+            'prev':      round(prev, 4) if prev else None,
+        }
+    except Exception as e:
+        log.debug(f"YF RT quote failed for {symbol}: {e}")
+        return None
+
+
 def _fetch_quote(symbol: str) -> dict | None:
     """Route to best available source."""
     if symbol in _FRED_MAP:
         return _fred_quote(symbol)
     if symbol in _STOOQ_RT:
         return _stooq_rt_quote(symbol)
-    return None
+    # Fallback: Yahoo Finance (handles ^MOVE, indices not in Stooq/FRED)
+    return _yf_rt_quote(symbol)
 
 
 def _fred_series(symbol: str, period: str) -> list[dict]:

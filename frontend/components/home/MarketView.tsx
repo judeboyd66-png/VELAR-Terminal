@@ -7,21 +7,23 @@ declare global {
 }
 
 // ─── Symbol map ───────────────────────────────────────────────────────────────
-//   The script widget reads your TradingView browser session, so all symbols
-//   available on your account work — TVC bonds, futures, indices, everything.
-//   Just stay logged into TradingView.com in the same browser.
+//   Avoid TVC:* — those require a TradingView login and break for public users.
+//   Use broker/exchange data feeds TradingView makes freely available:
+//     OANDA  → spot metals, oil, FX  (free, no account needed)
+//     CAPITALCOM → macro indices: DXY, VIX, yields  (free, no account needed)
+//     FX / BITSTAMP / AMEX / NASDAQ → standard free data
 
 export const TV_SYMBOLS: Record<string, string> = {
   'BTC-USD':   'BITSTAMP:BTCUSD',
   'EURUSD=X':  'FX:EURUSD',
   'QQQ':       'NASDAQ:QQQ',
   'SPY':       'AMEX:SPY',
-  'GC=F':      'TVC:GOLD',
-  'DX-Y.NYB':  'TVC:DXY',
-  '^TNX':      'TVC:US10Y',
-  'CL=F':      'TVC:USOIL',
+  'GC=F':      'OANDA:XAUUSD',      // Gold spot via OANDA (free, no login)
+  'DX-Y.NYB':  'CAPITALCOM:DXY',    // DXY via Capital.com (free, no login)
+  '^TNX':      'CAPITALCOM:US10',   // 10Y yield via Capital.com (free, no login)
+  'CL=F':      'OANDA:WTICOUSD',    // WTI crude via OANDA (free, no login)
   'USDJPY=X':  'FX:USDJPY',
-  '^VIX':      'TVC:VIX',
+  '^VIX':      'CAPITALCOM:VIX',    // VIX via Capital.com (free, no login)
   'HYG':       'AMEX:HYG',
 }
 
