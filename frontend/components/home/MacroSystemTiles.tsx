@@ -48,6 +48,18 @@ const VARIANT: Record<string, StateVariant> = {
   Elevated:              'neutral',
 }
 
+// ─── Tile → chart symbol map ──────────────────────────────────────────────────
+
+const TILE_SYMBOL: Record<string, string> = {
+  'Fed & Rates':    '^TNX',
+  'Private Credit': 'HYG',
+  'Yen Carry':      'USDJPY=X',
+  'Volatility':     '^VIX',
+  'Capex & AI':     'QQQ',
+  'Oil & Inflation':'CL=F',
+  'Liquidity':      'SPY',
+}
+
 // ─── Single tile ──────────────────────────────────────────────────────────────
 
 function SystemTile({
@@ -56,12 +68,14 @@ function SystemTile({
   m2,
   state,
   updated,
+  onClick,
 }: {
   title: string
   m1: { label: string; value: string }
   m2?: { label: string; value: string }
   state: string
   updated: string
+  onClick?: () => void
 }) {
   const v            = VARIANT[state] ?? 'neutral'
   const stateColor   = v === 'sage'  ? 'var(--sage)'
@@ -76,7 +90,11 @@ function SystemTile({
 
   return (
     <div
-      className="shrink-0 w-[155px] rounded-sm border px-4 py-3.5 flex flex-col gap-2.5"
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={e => e.key === 'Enter' && onClick?.()}
+      className="shrink-0 w-[155px] rounded-sm border px-4 py-3.5 flex flex-col gap-2.5 cursor-pointer transition-opacity hover:opacity-80 active:opacity-60"
       style={{ background: 'var(--raised)', borderColor: 'var(--line)' }}
     >
       {/* Title */}
@@ -114,7 +132,11 @@ function SystemTile({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function MacroSystemTiles() {
+interface MacroSystemTilesProps {
+  onTileSelect?: (sym: string) => void
+}
+
+export function MacroSystemTiles({ onTileSelect }: MacroSystemTilesProps) {
   const updated = lastFridayLabel()
 
   // — Market quotes (reuses cached 'overview-quotes' from OverviewLeft) ——————
@@ -291,6 +313,7 @@ export function MacroSystemTiles() {
           m2={{ label: 'Unemp', value: fv(unemployment, 1, '%') }}
           state={fedState}
           updated={updated}
+          onClick={() => onTileSelect?.(TILE_SYMBOL['Fed & Rates'])}
         />
 
         {/* 2 ── Private Credit */}
@@ -300,6 +323,7 @@ export function MacroSystemTiles() {
           m2={{ label: 'Chg',  value: fv(hyg?.changePct, 2, '%') }}
           state={creditState}
           updated={updated}
+          onClick={() => onTileSelect?.(TILE_SYMBOL['Private Credit'])}
         />
 
         {/* 3 ── Yen Carry */}
@@ -309,6 +333,7 @@ export function MacroSystemTiles() {
           m2={{ label: '2Y',     value: fv(t2y,           2, '%') }}
           state={carryState}
           updated={updated}
+          onClick={() => onTileSelect?.(TILE_SYMBOL['Yen Carry'])}
         />
 
         {/* 4 ── Volatility */}
@@ -318,6 +343,7 @@ export function MacroSystemTiles() {
           m2={{ label: 'MOVE', value: '—' }}
           state={volState}
           updated={updated}
+          onClick={() => onTileSelect?.(TILE_SYMBOL['Volatility'])}
         />
 
         {/* 5 ── Capex & AI */}
@@ -327,6 +353,7 @@ export function MacroSystemTiles() {
           m2={{ label: 'Chg',    value: fv(qqq?.changePct, 2, '%') }}
           state={capexState}
           updated={updated}
+          onClick={() => onTileSelect?.(TILE_SYMBOL['Capex & AI'])}
         />
 
         {/* 6 ── Oil & Inflation */}
@@ -336,6 +363,7 @@ export function MacroSystemTiles() {
           m2={{ label: 'CPI', value: fv(cpi,        2, '%') }}
           state={oilState}
           updated={updated}
+          onClick={() => onTileSelect?.(TILE_SYMBOL['Oil & Inflation'])}
         />
 
         {/* 7 ── Liquidity */}
@@ -345,6 +373,7 @@ export function MacroSystemTiles() {
           m2={{ label: 'Net Liq', value: fvT(netLiqBn) }}
           state={liqState}
           updated={updated}
+          onClick={() => onTileSelect?.(TILE_SYMBOL['Liquidity'])}
         />
       </div>
     </div>

@@ -96,7 +96,7 @@ export function OverviewLeft({ activeTicker, onTickerSelect }: OverviewLeftProps
     <div className="flex flex-col gap-5">
 
       {/* ── Weekly Systems ───────────────────────────────────────── */}
-      <MacroSystemTiles />
+      <MacroSystemTiles onTileSelect={onTickerSelect} />
 
       {/* ── Macro Data ───────────────────────────────────────────── */}
       <div>
