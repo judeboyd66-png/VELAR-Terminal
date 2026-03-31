@@ -37,23 +37,18 @@ function buildSrc(sym: string, tf: TF): string {
   const tvSym    = TV_SYMBOLS[sym] ?? sym
   const interval = TV_INTERVAL[tf]
   const params   = new URLSearchParams({
-    symbol:             tvSym,
+    symbol:            tvSym,
     interval,
-    theme:              'dark',
-    style:              '1',        // candlestick
-    locale:             'en',
-    toolbarbg:          '111111',
-    timezone:           'Etc/UTC',
-    enable_publishing:  '0',
-    symboledit:         '1',        // allow typing symbols inside TV
-    hideideas:          '1',
-    // candle colour overrides — white up, grey down
-    'overrides[mainSeriesProperties.candleStyle.upColor]':         '#e8e8e8',
-    'overrides[mainSeriesProperties.candleStyle.downColor]':       '#555555',
-    'overrides[mainSeriesProperties.candleStyle.borderUpColor]':   '#e8e8e8',
-    'overrides[mainSeriesProperties.candleStyle.borderDownColor]': '#555555',
-    'overrides[mainSeriesProperties.candleStyle.wickUpColor]':     '#aaaaaa',
-    'overrides[mainSeriesProperties.candleStyle.wickDownColor]':   '#666666',
+    theme:             'dark',
+    style:             '1',   // candlestick
+    locale:            'en',
+    toolbarbg:         '111111',
+    timezone:          'Etc/UTC',
+    enable_publishing: '0',
+    symboledit:        '1',   // users can type any symbol inside TV
+    hideideas:         '1',
+    hide_side_toolbar: '0',
+    save_image:        '0',
   })
   return `https://www.tradingview.com/widgetembed/?${params.toString()}`
 }
