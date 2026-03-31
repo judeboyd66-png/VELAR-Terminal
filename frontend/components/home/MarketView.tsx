@@ -85,7 +85,7 @@ function Chart({
 
   const params = TF_PARAMS[tf]
 
-  const { data: primaryData } = useQuery({
+  const { data: primaryData, isLoading, isError } = useQuery({
     queryKey: ['chart-series', primary, tf],
     queryFn:  () => api.market.timeSeries(primary, params.period, params.interval).then(r => r.data),
     staleTime: 5 * 60_000,
@@ -128,7 +128,6 @@ function Chart({
 
     const chart = createChart(containerRef.current, {
       autoSize: true,
-      height: 380,
       layout: {
         background: { type: ColorType.Solid, color: C.bg },
         textColor:  C.text,
@@ -220,12 +219,17 @@ function Chart({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [overlay0.data, overlay1.data, overlay2.data])
 
+  const showOverlay = isLoading || isError || !primaryData?.length
+
   return (
-    <div className="relative">
-      <div ref={containerRef} className="w-full" />
-      {!primaryData && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-[11px]" style={{ color: 'var(--t4)' }}>Loading…</div>
+    <div className="relative" style={{ height: '380px' }}>
+      <div ref={containerRef} className="w-full h-full" />
+      {showOverlay && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          style={{ background: C.bg }}>
+          <div className="text-[11px]" style={{ color: 'var(--t4)' }}>
+            {isError ? 'Chart data unavailable' : 'Loading chart…'}
+          </div>
         </div>
       )}
     </div>

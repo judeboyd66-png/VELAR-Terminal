@@ -242,8 +242,10 @@ def _stooq_series(symbol: str, period: str, interval: str) -> list[dict]:
             if not line or line.startswith('Date') or ',' not in line:
                 continue
             parts = line.split(',')
-            if len(parts) >= 4:
-                close = _safe_float(parts[3])
+            # Stooq format: Date, Open, High, Low, Close[, Volume]
+            # Close is always index 4 (index 3 is Low — common off-by-one mistake)
+            if len(parts) >= 5:
+                close = _safe_float(parts[4])
                 if close:
                     points.append({'date': parts[0], 'value': round(close, 4)})
         return points
@@ -283,7 +285,7 @@ def get_series(
     period: str   = Query('1y'),
     interval: str = Query('1d'),
 ):
-    cache_key = f"series_v5_{symbol}_{period}_{interval}"
+    cache_key = f"series_v6_{symbol}_{period}_{interval}"
     cached = cache.get(cache_key)
     if cached:
         return cached
