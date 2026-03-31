@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { createChart, ColorType, LineStyle, type IChartApi, type ISeriesApi, type Time } from 'lightweight-charts'
+import { createChart, ColorType, LineStyle, type IChartApi, type ISeriesApi, type Time, type CandlestickData } from 'lightweight-charts'
 import { api } from '@/lib/api'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -33,24 +33,25 @@ const TF_PARAMS: Record<TF, { period: string; interval: string }> = {
   '1Y': { period: '10y',  interval: '1mo' },
 }
 
-// Overlay series colors — amber, coral, cream-dim, taupe
-const OVERLAY_COLORS = [
-  'rgba(196,152,88,0.85)',   // amber
-  'rgba(200,136,120,0.80)',  // coral
-  'rgba(240,237,232,0.40)',  // cream-dim
-  'rgba(138,122,104,0.70)',  // taupe
-]
-
-// Dark chart theme tokens
+// Dark chart theme — ash palette, grey/white candles
 const C = {
-  bg:       '#111114',
-  bg2:      '#0c0c0f',
-  grid:     'rgba(255,255,255,0.032)',
-  text:     'rgba(240,237,232,0.30)',
-  border:   'rgba(255,255,255,0.06)',
-  primary:  '#8aaa8e',  // sage
-  cross:    'rgba(255,255,255,0.22)',
+  bg:         '#111111',  // ash dark
+  grid:       'rgba(255,255,255,0.04)',
+  text:       'rgba(200,200,200,0.35)',
+  border:     'rgba(255,255,255,0.07)',
+  cross:      'rgba(255,255,255,0.20)',
+  // Candle colours — institutional grey/white, no red/green
+  upBody:     '#e8e8e8',  // white for up
+  upWick:     '#aaaaaa',
+  downBody:   '#555555',  // grey for down
+  downWick:   '#444444',
+  // Overlay line colours
+  ov0:        'rgba(196,152,88,0.85)',   // amber
+  ov1:        'rgba(200,136,120,0.80)',  // coral
+  ov2:        'rgba(255,255,255,0.35)',  // white-dim
 }
+
+const OVERLAY_COLORS = [C.ov0, C.ov1, C.ov2]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -80,7 +81,7 @@ function Chart({
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef     = useRef<IChartApi | null>(null)
-  const seriesRef    = useRef<ISeriesApi<'Area'> | null>(null)
+  const seriesRef    = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const overlayRefs  = useRef<ISeriesApi<'Line'>[]>([])
 
   const params = TF_PARAMS[tf]
@@ -158,11 +159,13 @@ function Chart({
       handleScale:   { axisPressedMouseMove: true, mouseWheel: true },
     })
 
-    const series = chart.addAreaSeries({
-      lineColor:   C.primary,
-      topColor:    'rgba(138,170,142,0.12)',
-      bottomColor: 'rgba(138,170,142,0)',
-      lineWidth:   1,
+    const series = chart.addCandlestickSeries({
+      upColor:        C.upBody,
+      downColor:      C.downBody,
+      borderUpColor:  C.upBody,
+      borderDownColor: C.downBody,
+      wickUpColor:    C.upWick,
+      wickDownColor:  C.downWick,
       priceLineVisible: false,
       lastValueVisible: true,
     })
@@ -177,11 +180,17 @@ function Chart({
     }
   }, []) // intentionally empty — chart created once
 
-  // Update primary series data
+  // Update primary candlestick data
   useEffect(() => {
     if (!seriesRef.current || !primaryData?.length) return
-    const pts = primaryData
-      .map(p => ({ time: p.date as Time, value: p.value }))
+    const pts: CandlestickData[] = primaryData
+      .map(p => ({
+        time:  p.date as Time,
+        open:  p.open  ?? p.value,
+        high:  p.high  ?? p.value,
+        low:   p.low   ?? p.value,
+        close: p.value,
+      }))
       .sort((a, b) => (a.time < b.time ? -1 : 1))
     seriesRef.current.setData(pts)
     chartRef.current?.timeScale().fitContent()

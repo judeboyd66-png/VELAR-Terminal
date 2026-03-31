@@ -208,7 +208,9 @@ def _fred_series(symbol: str, period: str) -> list[dict]:
         for obs in r.json().get('observations', []):
             v = _safe_float(obs.get('value'))
             if v is not None:
-                points.append({'date': obs['date'], 'value': round(v, 4)})
+                points.append({'date': obs['date'], 'open': round(v, 4),
+                               'high': round(v, 4), 'low': round(v, 4),
+                               'value': round(v, 4)})
         return points
     except Exception as e:
         log.debug(f"FRED series failed for {symbol}: {e}")
@@ -243,11 +245,19 @@ def _stooq_series(symbol: str, period: str, interval: str) -> list[dict]:
                 continue
             parts = line.split(',')
             # Stooq format: Date, Open, High, Low, Close[, Volume]
-            # Close is always index 4 (index 3 is Low — common off-by-one mistake)
             if len(parts) >= 5:
-                close = _safe_float(parts[4])
-                if close:
-                    points.append({'date': parts[0], 'value': round(close, 4)})
+                o = _safe_float(parts[1])
+                h = _safe_float(parts[2])
+                l = _safe_float(parts[3])
+                c = _safe_float(parts[4])
+                if c:
+                    points.append({
+                        'date':  parts[0],
+                        'open':  round(o, 4) if o else round(c, 4),
+                        'high':  round(h, 4) if h else round(c, 4),
+                        'low':   round(l, 4) if l else round(c, 4),
+                        'value': round(c, 4),
+                    })
         return points
     except Exception as e:
         log.debug(f"Stooq series failed for {symbol}: {e}")
@@ -285,7 +295,7 @@ def get_series(
     period: str   = Query('1y'),
     interval: str = Query('1d'),
 ):
-    cache_key = f"series_v6_{symbol}_{period}_{interval}"
+    cache_key = f"series_v7_{symbol}_{period}_{interval}"
     cached = cache.get(cache_key)
     if cached:
         return cached

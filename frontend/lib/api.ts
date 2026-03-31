@@ -15,8 +15,11 @@ export interface MarketQuote {
 }
 
 export interface TimeSeriesPoint {
-  date: string
-  value: number
+  date:  string
+  value: number   // close price
+  open?: number
+  high?: number
+  low?:  number
 }
 
 export interface EarningsEntry {
