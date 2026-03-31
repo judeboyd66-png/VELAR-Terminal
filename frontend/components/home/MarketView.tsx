@@ -1,325 +1,152 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { createChart, ColorType, LineStyle, type IChartApi, type ISeriesApi, type Time, type CandlestickData } from 'lightweight-charts'
-import { api } from '@/lib/api'
+import { useEffect, useRef, useState } from 'react'
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── TradingView global type ──────────────────────────────────────────────────
+
+declare global {
+  interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    TradingView: { widget: new (config: Record<string, any>) => void }
+  }
+}
+
+// ─── Symbol map: our internal keys → TradingView exchange:symbol ──────────────
+
+export const TV_SYMBOLS: Record<string, string> = {
+  'BTC-USD':   'BITSTAMP:BTCUSD',
+  'EURUSD=X':  'FX:EURUSD',
+  'QQQ':       'NASDAQ:QQQ',
+  'SPY':       'AMEX:SPY',
+  'GC=F':      'COMEX:GC1!',
+  'DX-Y.NYB':  'TVC:DXY',
+  '^TNX':      'TVC:US10Y',
+  'CL=F':      'NYMEX:CL1!',
+  'USDJPY=X':  'FX:USDJPY',
+  '^VIX':      'CBOE:VIX',
+}
+
+// ─── Timeframes ───────────────────────────────────────────────────────────────
 
 const TIMEFRAMES = ['4H', '1D', '1W', '1M', '3M', '1Y'] as const
 type TF = typeof TIMEFRAMES[number]
 
-// Maps display label → backend symbol
-export const CHART_TICKERS: { label: string; sym: string }[] = [
-  { label: 'BTC',    sym: 'BTC-USD'   },
-  { label: 'EURUSD', sym: 'EURUSD=X'  },
-  { label: 'NAS100', sym: 'QQQ'       },
-  { label: 'SPX',    sym: 'SPY'       },
-  { label: 'XAUUSD', sym: 'GC=F'      },
-  { label: 'DXY',    sym: 'DX-Y.NYB'  },
-  { label: 'US10Y',  sym: '^TNX'      },
-  { label: 'WTI',    sym: 'CL=F'      },
-  { label: 'USDJPY', sym: 'USDJPY=X'  },
-  { label: 'VIX',    sym: '^VIX'      },
-]
-
-const TF_PARAMS: Record<TF, { period: string; interval: string }> = {
-  '4H': { period: '1mo',  interval: '1d'  },
-  '1D': { period: '6mo',  interval: '1d'  },
-  '1W': { period: '1y',   interval: '1d'  },
-  '1M': { period: '2y',   interval: '1wk' },
-  '3M': { period: '5y',   interval: '1wk' },
-  '1Y': { period: '10y',  interval: '1mo' },
+const TV_INTERVAL: Record<TF, string> = {
+  '4H': '240',
+  '1D': 'D',
+  '1W': 'W',
+  '1M': 'M',
+  '3M': '3M',
+  '1Y': '12M',
 }
 
-// Dark chart theme — ash palette, grey/white candles
-const C = {
-  bg:         '#111111',  // ash dark
-  grid:       'rgba(255,255,255,0.04)',
-  text:       'rgba(200,200,200,0.35)',
-  border:     'rgba(255,255,255,0.07)',
-  cross:      'rgba(255,255,255,0.20)',
-  // Candle colours — institutional grey/white, no red/green
-  upBody:     '#e8e8e8',  // white for up
-  upWick:     '#aaaaaa',
-  downBody:   '#555555',  // grey for down
-  downWick:   '#444444',
-  // Overlay line colours
-  ov0:        'rgba(196,152,88,0.85)',   // amber
-  ov1:        'rgba(200,136,120,0.80)',  // coral
-  ov2:        'rgba(255,255,255,0.35)',  // white-dim
-}
+const CONTAINER_ID = 'velar-tv-chart'
 
-const OVERLAY_COLORS = [C.ov0, C.ov1, C.ov2]
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function labelFor(sym: string) {
-  return CHART_TICKERS.find(t => t.sym === sym)?.label ?? sym
-}
-
-function parseExpression(expr: string): string[] {
-  // Supports: "SPY", "SPY/GC=F", "^TNX - DGS2", "BTC-USD / QQQ"
-  const raw = expr.trim()
-  if (!raw) return []
-  // Split on / or - that is not part of a ticker name
-  const parts = raw.split(/\s*[\/\+\-\*]\s*/)
-  return parts.map(p => p.trim()).filter(Boolean)
-}
-
-// ─── Chart component ──────────────────────────────────────────────────────────
-
-function Chart({
-  primary,
-  overlaySyms,
-  tf,
-}: {
-  primary: string
-  overlaySyms: string[]
-  tf: TF
-}) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const chartRef     = useRef<IChartApi | null>(null)
-  const seriesRef    = useRef<ISeriesApi<'Candlestick'> | null>(null)
-  const overlayRefs  = useRef<ISeriesApi<'Line'>[]>([])
-
-  const params = TF_PARAMS[tf]
-
-  const { data: primaryData, isLoading, isError } = useQuery({
-    queryKey: ['chart-series', primary, tf],
-    queryFn:  () => api.market.timeSeries(primary, params.period, params.interval).then(r => r.data),
-    staleTime: 5 * 60_000,
-    retry: 1,
-  })
-
-  // Fetch overlay data — run one query per overlay
-  const overlay0 = useQuery({
-    queryKey: ['chart-series', overlaySyms[0] ?? '', tf],
-    queryFn:  () => overlaySyms[0]
-      ? api.market.timeSeries(overlaySyms[0], params.period, params.interval).then(r => r.data)
-      : Promise.resolve([]),
-    enabled: !!overlaySyms[0],
-    staleTime: 5 * 60_000,
-    retry: 1,
-  })
-  const overlay1 = useQuery({
-    queryKey: ['chart-series', overlaySyms[1] ?? '', tf],
-    queryFn:  () => overlaySyms[1]
-      ? api.market.timeSeries(overlaySyms[1], params.period, params.interval).then(r => r.data)
-      : Promise.resolve([]),
-    enabled: !!overlaySyms[1],
-    staleTime: 5 * 60_000,
-    retry: 1,
-  })
-  const overlay2 = useQuery({
-    queryKey: ['chart-series', overlaySyms[2] ?? '', tf],
-    queryFn:  () => overlaySyms[2]
-      ? api.market.timeSeries(overlaySyms[2], params.period, params.interval).then(r => r.data)
-      : Promise.resolve([]),
-    enabled: !!overlaySyms[2],
-    staleTime: 5 * 60_000,
-    retry: 1,
-  })
-  const overlayDataSets = [overlay0.data, overlay1.data, overlay2.data]
-
-  // Create chart once on mount
-  useEffect(() => {
-    if (!containerRef.current) return
-
-    const chart = createChart(containerRef.current, {
-      autoSize: true,
-      layout: {
-        background: { type: ColorType.Solid, color: C.bg },
-        textColor:  C.text,
-        fontFamily: "'Inter', system-ui, sans-serif",
-        fontSize:   11,
-      },
-      grid: {
-        vertLines: { color: C.grid },
-        horzLines: { color: C.grid },
-      },
-      crosshair: {
-        vertLine: { color: C.cross, width: 1, style: LineStyle.Dashed, labelBackgroundColor: '#171719' },
-        horzLine: { color: C.cross, width: 1, style: LineStyle.Dashed, labelBackgroundColor: '#171719' },
-      },
-      rightPriceScale: {
-        borderColor: C.border,
-        textColor:   C.text,
-        scaleMargins: { top: 0.12, bottom: 0.08 },
-      },
-      timeScale: {
-        borderColor:     C.border,
-        fixLeftEdge:     true,
-        fixRightEdge:    true,
-        timeVisible:     true,
-        secondsVisible:  false,
-      },
-      handleScroll:  { mouseWheel: true, pressedMouseMove: true },
-      handleScale:   { axisPressedMouseMove: true, mouseWheel: true },
-    })
-
-    const series = chart.addCandlestickSeries({
-      upColor:        C.upBody,
-      downColor:      C.downBody,
-      borderUpColor:  C.upBody,
-      borderDownColor: C.downBody,
-      wickUpColor:    C.upWick,
-      wickDownColor:  C.downWick,
-      priceLineVisible: false,
-      lastValueVisible: true,
-    })
-
-    chartRef.current  = chart
-    seriesRef.current = series
-
-    return () => {
-      chart.remove()
-      chartRef.current  = null
-      seriesRef.current = null
-    }
-  }, []) // intentionally empty — chart created once
-
-  // Update primary candlestick data
-  useEffect(() => {
-    if (!seriesRef.current || !primaryData?.length) return
-    const pts: CandlestickData[] = primaryData
-      .map(p => ({
-        time:  p.date as Time,
-        open:  p.open  ?? p.value,
-        high:  p.high  ?? p.value,
-        low:   p.low   ?? p.value,
-        close: p.value,
-      }))
-      .sort((a, b) => (a.time < b.time ? -1 : 1))
-    seriesRef.current.setData(pts)
-    chartRef.current?.timeScale().fitContent()
-  }, [primaryData])
-
-  // Update overlay series
-  useEffect(() => {
-    if (!chartRef.current) return
-
-    // Remove old overlay series
-    overlayRefs.current.forEach(s => {
-      try { chartRef.current?.removeSeries(s) } catch {}
-    })
-    overlayRefs.current = []
-
-    overlayDataSets.forEach((data, i) => {
-      if (!data?.length || !chartRef.current) return
-      const color = OVERLAY_COLORS[i % OVERLAY_COLORS.length]
-      const s = chartRef.current.addLineSeries({
-        color,
-        lineWidth:        1,
-        priceLineVisible: false,
-        lastValueVisible: true,
-        priceScaleId:     `overlay-${i}`,
-      })
-      s.applyOptions({
-        priceScale: { scaleMargins: { top: 0.1, bottom: 0.1 } },
-      } as Parameters<typeof s.applyOptions>[0])
-      const pts = data
-        .map(p => ({ time: p.date as Time, value: p.value }))
-        .sort((a, b) => (a.time < b.time ? -1 : 1))
-      s.setData(pts)
-      overlayRefs.current.push(s)
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overlay0.data, overlay1.data, overlay2.data])
-
-  const showOverlay = isLoading || isError || !primaryData?.length
-
-  return (
-    <div className="relative" style={{ height: '380px' }}>
-      <div ref={containerRef} className="w-full h-full" />
-      {showOverlay && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none"
-          style={{ background: C.bg }}>
-          <div className="text-[11px]" style={{ color: 'var(--t4)' }}>
-            {isError ? 'Chart data unavailable' : 'Loading chart…'}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── Main MarketView ──────────────────────────────────────────────────────────
+// ─── Component ────────────────────────────────────────────────────────────────
 
 interface MarketViewProps {
-  activeTicker?: string  // symbol from SidePanel click
+  activeTicker?: string
 }
 
 export function MarketView({ activeTicker }: MarketViewProps) {
-  const [primary,  setPrimary]  = useState('SPY')
-  const [tf,       setTf]       = useState<TF>('1W')
-  const [overlays, setOverlays] = useState<string[]>([])
-  const [expr,     setExpr]     = useState('')
-  const [exprInput, setExprInput] = useState('')
+  const [tf,  setTf]  = useState<TF>('1D')
+  const [sym, setSym] = useState(activeTicker ?? 'SPY')
+  const scriptLoaded  = useRef(false)
 
-  // Sync with SidePanel click
+  // Sync ticker from sidebar click
   useEffect(() => {
-    if (activeTicker) setPrimary(activeTicker)
+    if (activeTicker) setSym(activeTicker)
   }, [activeTicker])
 
-  const addOverlay = useCallback((sym: string) => {
-    if (!sym || sym === primary || overlays.includes(sym) || overlays.length >= 3) return
-    setOverlays(prev => [...prev, sym])
-  }, [primary, overlays])
-
-  const removeOverlay = useCallback((sym: string) => {
-    setOverlays(prev => prev.filter(s => s !== sym))
+  // Load tv.js once
+  useEffect(() => {
+    if (document.getElementById('tv-script')) {
+      scriptLoaded.current = true
+      return
+    }
+    const s = document.createElement('script')
+    s.id  = 'tv-script'
+    s.src = 'https://s3.tradingview.com/tv.js'
+    s.async = true
+    s.onload = () => { scriptLoaded.current = true }
+    document.head.appendChild(s)
   }, [])
 
-  const applyExpression = () => {
-    const parts = parseExpression(exprInput)
-    if (!parts.length) return
-    // For now: first token = primary, rest = overlays
-    setPrimary(parts[0])
-    setOverlays(parts.slice(1, 4))
-    setExpr(exprInput)
-  }
+  // Create / re-create widget whenever sym or tf changes
+  useEffect(() => {
+    const tvSym     = TV_SYMBOLS[sym] ?? sym
+    const interval  = TV_INTERVAL[tf]
 
-  const primaryLabel = labelFor(primary)
+    const create = () => {
+      const el = document.getElementById(CONTAINER_ID)
+      if (!el || !window.TradingView) return
+      el.innerHTML = ''   // destroy previous widget
+      new window.TradingView.widget({
+        autosize:             true,
+        symbol:               tvSym,
+        interval,
+        timezone:             'Etc/UTC',
+        theme:                'dark',
+        style:                '1',        // candlestick
+        locale:               'en',
+        toolbar_bg:           '#111111',
+        backgroundColor:      'rgba(17,17,17,1)',
+        gridColor:            'rgba(255,255,255,0.04)',
+        enable_publishing:    false,
+        allow_symbol_change:  false,
+        hide_side_toolbar:    false,
+        save_image:           false,
+        withdateranges:       true,
+        hide_legend:          false,
+        container_id:         CONTAINER_ID,
+        // Candle colours — white up, grey down
+        overrides: {
+          'mainSeriesProperties.candleStyle.upColor':             '#e8e8e8',
+          'mainSeriesProperties.candleStyle.downColor':           '#555555',
+          'mainSeriesProperties.candleStyle.borderUpColor':       '#e8e8e8',
+          'mainSeriesProperties.candleStyle.borderDownColor':     '#555555',
+          'mainSeriesProperties.candleStyle.wickUpColor':         '#aaaaaa',
+          'mainSeriesProperties.candleStyle.wickDownColor':       '#666666',
+          'paneProperties.background':                            '#111111',
+          'paneProperties.backgroundType':                        'solid',
+          'paneProperties.vertGridProperties.color':              'rgba(255,255,255,0.04)',
+          'paneProperties.horzGridProperties.color':              'rgba(255,255,255,0.04)',
+          'scalesProperties.textColor':                           'rgba(200,200,200,0.4)',
+          'scalesProperties.lineColor':                           'rgba(255,255,255,0.07)',
+        },
+      })
+    }
+
+    // If script already loaded, create immediately; else wait for it
+    if (window.TradingView) {
+      create()
+    } else {
+      const s = document.getElementById('tv-script')
+      if (s) {
+        s.addEventListener('load', create, { once: true })
+        return () => s.removeEventListener('load', create)
+      }
+    }
+  }, [sym, tf])
+
+  const label = Object.entries(TV_SYMBOLS).find(([k]) => k === sym)?.[0] ?? sym
 
   return (
-    <div className="border rounded-sm overflow-hidden"
-      style={{ background: 'var(--raised)', borderColor: 'var(--line)' }}>
-
-      {/* ── Top bar ─────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 px-4 py-2.5 border-b"
-        style={{ borderColor: 'var(--line2)' }}>
-
-        {/* Active label */}
-        <span className="text-[11px] font-semibold tracking-[0.06em]"
-          style={{ color: 'var(--t1)' }}>
-          {primaryLabel}
+    <div
+      className="border rounded-sm overflow-hidden flex flex-col"
+      style={{ borderColor: 'var(--line)', background: '#111111' }}
+    >
+      {/* ── Controls ──────────────────────────────────────────── */}
+      <div
+        className="flex items-center justify-between px-4 py-2 border-b shrink-0"
+        style={{ borderColor: 'var(--line2)' }}
+      >
+        <span
+          className="text-[11px] font-semibold tracking-[0.04em]"
+          style={{ color: 'var(--t2)' }}
+        >
+          {TV_SYMBOLS[sym] ?? sym}
         </span>
-
-        {/* Divider */}
-        <span style={{ color: 'var(--line)' }}>|</span>
-
-        {/* Expression input */}
-        <div className="flex items-center gap-1.5 flex-1">
-          <input
-            value={exprInput}
-            onChange={e => setExprInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') applyExpression() }}
-            placeholder="SPX / GOLD  ·  US10Y - US02Y  ·  BTC / NAS100"
-            className="flex-1 bg-transparent text-[11px] outline-none min-w-0"
-            style={{ color: 'var(--t2)', caretColor: 'var(--t1)' }}
-          />
-          {exprInput && (
-            <button
-              onClick={applyExpression}
-              className="text-[9px] font-semibold tracking-[0.08em] uppercase px-2 py-1 rounded-sm border"
-              style={{ color: 'var(--taupe)', borderColor: 'var(--line)' }}
-            >
-              Apply
-            </button>
-          )}
-        </div>
 
         {/* Timeframe buttons */}
         <div className="flex items-center gap-px">
@@ -329,7 +156,7 @@ export function MarketView({ activeTicker }: MarketViewProps) {
               onClick={() => setTf(t)}
               className="text-[10px] font-medium px-2.5 py-1 rounded-sm transition-colors"
               style={{
-                color:      t === tf ? 'var(--t1)'   : 'var(--t3)',
+                color:      t === tf ? 'var(--t1)'    : 'var(--t4)',
                 background: t === tf ? 'var(--float)' : 'transparent',
               }}
             >
@@ -339,58 +166,8 @@ export function MarketView({ activeTicker }: MarketViewProps) {
         </div>
       </div>
 
-      {/* ── Overlay chips + add ──────────────────────────────────── */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b"
-        style={{ borderColor: 'var(--line2)' }}>
-        <span className="text-[9px] font-semibold tracking-[0.1em] uppercase"
-          style={{ color: 'var(--taupe)' }}>
-          Overlay
-        </span>
-        {overlays.map((sym, i) => (
-          <span
-            key={sym}
-            className="inline-flex items-center gap-1 text-[10px] px-2 py-[2px] rounded-sm border"
-            style={{
-              color: OVERLAY_COLORS[i % OVERLAY_COLORS.length],
-              borderColor: OVERLAY_COLORS[i % OVERLAY_COLORS.length].replace('0.85', '0.3').replace('0.80', '0.3').replace('0.40', '0.2').replace('0.70', '0.3'),
-              background: 'rgba(255,255,255,0.03)',
-            }}
-          >
-            {labelFor(sym)}
-            <button
-              onClick={() => removeOverlay(sym)}
-              className="opacity-50 hover:opacity-100 transition-opacity ml-0.5 text-[9px]"
-            >
-              ×
-            </button>
-          </span>
-        ))}
-
-        {/* Add overlay dropdown */}
-        {overlays.length < 3 && (
-          <select
-            value=""
-            onChange={e => { addOverlay(e.target.value); e.target.value = '' }}
-            className="text-[10px] bg-transparent outline-none cursor-pointer"
-            style={{ color: 'var(--t4)' }}
-          >
-            <option value="" disabled style={{ background: '#111114' }}>+ Add</option>
-            {CHART_TICKERS
-              .filter(t => t.sym !== primary && !overlays.includes(t.sym))
-              .map(t => (
-                <option key={t.sym} value={t.sym} style={{ background: '#111114', color: '#f0ede8' }}>
-                  {t.label}
-                </option>
-              ))}
-          </select>
-        )}
-      </div>
-
-      {/* ── Chart ───────────────────────────────────────────────── */}
-      <div style={{ background: C.bg }}>
-        <Chart primary={primary} overlaySyms={overlays} tf={tf} />
-      </div>
-
+      {/* ── TradingView chart ─────────────────────────────────── */}
+      <div id={CONTAINER_ID} style={{ height: '560px' }} />
     </div>
   )
 }
