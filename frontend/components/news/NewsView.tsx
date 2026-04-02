@@ -455,11 +455,6 @@ export function NewsView() {
             <h1 className="text-[16px] font-semibold tracking-[-0.02em] mb-1" style={{ color: 'var(--t1)' }}>
               {activeCategory === 'Earnings' ? 'S&P 100 Earnings Calendar' : 'Market News'}
             </h1>
-            {activeCategory !== 'Earnings' && (
-              <p className="text-[11px]" style={{ color: 'var(--t4)' }}>
-                Bloomberg · CNBC · FT · WSJ · Yahoo Finance · MarketWatch · The Economist · ForexLive · BBC · OilPrice · TechCrunch · CoinDesk · and more
-              </p>
-            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {highCount > 0 && activeCategory !== 'Earnings' && (

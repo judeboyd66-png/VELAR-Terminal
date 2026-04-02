@@ -546,10 +546,12 @@ export function CalendarView() {
         onImpact={toggleImpact}
       />
 
-      {/* Table — horizontal scroll on mobile */}
+      {/* Sticky column header — outside scroll container so sticky works */}
+      <TableHeader />
+
+      {/* Table rows — horizontal scroll on mobile */}
       <div className="overflow-x-auto" style={{ background: 'var(--base)' }}>
         <div style={{ minWidth: '700px' }}>
-        <TableHeader />
 
         <AnimatePresence mode="wait">
           <motion.div
