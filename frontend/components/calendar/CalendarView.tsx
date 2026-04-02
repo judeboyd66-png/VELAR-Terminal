@@ -181,12 +181,13 @@ const COL = 'text-[9px] font-bold tracking-[0.12em] uppercase'
 function TableHeader() {
   return (
     <div
-      className="grid items-center px-6 py-2 sticky top-[64px] z-10"
+      className="grid items-center px-6 py-2 sticky z-10"
       style={{
         gridTemplateColumns: '72px 64px 1fr 110px 72px 72px 72px 1fr',
         background: 'var(--raised)',
         borderBottom: '1px solid var(--line)',
         gap: '12px',
+        top: 'var(--nav-h)',
       }}
     >
       <span className={COL} style={{ color: 'var(--t4)' }}>Time</span>
@@ -526,7 +527,7 @@ export function CalendarView() {
   const totalVisible = grouped.reduce((n, [, g]) => n + g.events.length, 0)
 
   return (
-    <div className="min-h-screen pt-[64px]" style={{ background: 'var(--base)' }}>
+    <div className="min-h-screen" style={{ paddingTop: 'var(--nav-h)', background: 'var(--base)' }}>
       {/* Week navigation */}
       <WeekNav
         weekOffset={weekOffset}
@@ -545,8 +546,9 @@ export function CalendarView() {
         onImpact={toggleImpact}
       />
 
-      {/* Table */}
-      <div style={{ background: 'var(--base)' }}>
+      {/* Table — horizontal scroll on mobile */}
+      <div className="overflow-x-auto" style={{ background: 'var(--base)' }}>
+        <div style={{ minWidth: '700px' }}>
         <TableHeader />
 
         <AnimatePresence mode="wait">
@@ -608,6 +610,7 @@ export function CalendarView() {
             )}
           </div>
         )}
+        </div>
       </div>
     </div>
   )

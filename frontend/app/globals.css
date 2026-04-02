@@ -325,3 +325,15 @@ body::before {
    RADIX POPOVER (theme switcher)
 ═══════════════════════════════════════════════════════════════ */
 [data-radix-popper-content-wrapper] { z-index: 200 !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE NAV HEIGHT
+═══════════════════════════════════════════════════════════════ */
+:root {
+  --nav-h: 112px;
+}
+@media (min-width: 768px) {
+  :root {
+    --nav-h: 64px;
+  }
+}

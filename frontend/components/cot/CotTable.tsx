@@ -94,7 +94,7 @@ function BiasBadge({ bias }: { bias: 'bullish' | 'bearish' | 'neutral' }) {
 
 export function CotTable() {
   return (
-    <div className="px-14 py-12">
+    <div className="px-4 py-6 md:px-10 md:py-10 lg:px-14 lg:py-12">
 
       {/* Header */}
       <motion.div
@@ -115,10 +115,11 @@ export function CotTable() {
         </p>
       </motion.div>
 
-      {/* Table */}
+      {/* Table — horizontal scroll on mobile */}
+      <div className="overflow-x-auto">
       <motion.div
         className="border rounded-lg overflow-hidden"
-        style={{ borderColor: 'var(--line)' }}
+        style={{ borderColor: 'var(--line)', minWidth: '860px' }}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.1 }}
@@ -201,6 +202,7 @@ export function CotTable() {
           )
         })}
       </motion.div>
+      </div>
 
       {/* Footer note */}
       <p className="mt-6 text-[11px]" style={{ color: 'var(--t4)' }}>

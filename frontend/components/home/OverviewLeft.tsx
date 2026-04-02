@@ -302,7 +302,7 @@ export function OverviewLeft() {
       <MacroBiasCard quotes={quotes} us02y={t2y ?? null} />
 
       {/* ── Two-column: Agenda + News ────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <TodaysAgenda />
         <UrgentNews />
       </div>
@@ -311,7 +311,7 @@ export function OverviewLeft() {
       <div>
         <div className="section-label mb-3">Macro</div>
         <div
-          className="grid grid-cols-6 border-t border-l"
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 border-t border-l"
           style={{ borderColor: 'var(--line2)' }}
         >
           <MacroCell label="CPI YoY"      value={fmt(cpi,          2, '%')} />

@@ -76,7 +76,7 @@ function FilterDock({ activeCategory, setCategory, activeImpact, setImpact }: {
   setImpact: (i: ImpactFilter) => void
 }) {
   return (
-    <div className="sticky z-10" style={{ top: '64px', background: 'var(--base)', borderBottom: '1px solid var(--line)' }}>
+    <div className="sticky z-10" style={{ top: 'var(--nav-h)', background: 'var(--base)', borderBottom: '1px solid var(--line)' }}>
       {/* Category row */}
       <div className="flex items-center gap-1.5 px-6 overflow-x-auto" style={{ height: '44px', scrollbarWidth: 'none' }}>
         {CATEGORIES.map(cat => (
@@ -440,7 +440,7 @@ export function NewsView() {
   const updatedLabel = dataUpdatedAt ? `Updated ${timeAgo(dataUpdatedAt / 1000)}` : 'Loading...'
 
   return (
-    <div style={{ paddingTop: '64px', minHeight: '100vh', background: 'var(--base)' }}>
+    <div style={{ paddingTop: 'var(--nav-h)', minHeight: '100vh', background: 'var(--base)' }}>
       <FilterDock
         activeCategory={activeCategory}
         setCategory={cat => { setActiveCategory(cat); setActiveImpact('Any') }}
@@ -483,7 +483,7 @@ export function NewsView() {
         {activeCategory === 'Earnings' ? (
           <EarningsTable />
         ) : isLoading ? (
-          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }}>
+          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(340px, 100%), 1fr))' }}>
             {Array.from({length: 9}).map((_,i) => <SkeletonCard key={i} />)}
           </div>
         ) : articles.length === 0 ? (
@@ -504,7 +504,7 @@ export function NewsView() {
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
               className="grid gap-3"
-              style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }}
+              style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(340px, 100%), 1fr))' }}
             >
               {articles.map((article, i) => (
                 <NewsCard key={`${article.title}-${i}`} article={article} index={i} />

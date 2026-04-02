@@ -156,12 +156,11 @@ export function SidePanel() {
 
   return (
     <aside
-      className="w-[260px] shrink-0 overflow-y-auto"
+      className="w-full lg:w-[260px] lg:shrink-0 lg:sticky lg:overflow-y-auto border-t lg:border-t-0 lg:border-l"
       style={{
-        borderLeft: '1px solid var(--line)',
-        maxHeight: 'calc(100vh - 64px)',
-        position: 'sticky',
-        top: '64px',
+        borderColor: 'var(--line)',
+        top: 'var(--nav-h)',
+        maxHeight: 'calc(100vh - var(--nav-h))',
       }}
     >
       <div className="px-5 pt-5 pb-4">

@@ -38,7 +38,7 @@ function StatCard({
 }) {
   return (
     <div
-      className={`flex flex-col justify-between p-5 rounded-xl ${wide ? 'col-span-2' : ''}`}
+      className={`flex flex-col justify-between p-5 rounded-xl ${wide ? 'col-span-1 sm:col-span-2' : ''}`}
       style={{
         background: 'var(--raised)',
         border: '1px solid var(--line)',
@@ -95,8 +95,7 @@ function SectionWrap({ children }: { children: React.ReactNode }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-      className="p-6 grid gap-4"
-      style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}
+      className="p-4 md:p-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
     >
       {children}
     </motion.div>
@@ -133,13 +132,13 @@ function FedRates() {
       <StatCard label="2Y Treasury"       sub="Yield"                        color="var(--cream)" />
       <StatCard label="Yield Spread"      sub="10Y minus 2Y"                 color="var(--taupe)" />
       {/* Charts span full width */}
-      <div className="col-span-4">
+      <div className="col-span-1 sm:col-span-2 lg:col-span-4">
         <ChartPlaceholder label="Fed Funds Rate — Historical" tall />
       </div>
-      <div className="col-span-2">
+      <div className="col-span-1 sm:col-span-2">
         <ChartPlaceholder label="CPI vs Core PCE" />
       </div>
-      <div className="col-span-2">
+      <div className="col-span-1 sm:col-span-2">
         <ChartPlaceholder label="Yield Curve" />
       </div>
     </SectionWrap>
@@ -155,19 +154,19 @@ function PrivateCredit() {
       <StatCard label="BDC Net Asset"     sub="BDC index price"              color="var(--amber)" />
       <StatCard label="HY Spread"         sub="Option-adjusted"              color="var(--coral)" />
       <StatCard label="IG Spread"         sub="Investment grade OAS"         color="var(--taupe)" />
-      <div className="col-span-2">
+      <div className="col-span-1 sm:col-span-2">
         <ChartPlaceholder label="Private Credit AUM Growth" tall />
       </div>
-      <div className="col-span-2">
+      <div className="col-span-1 sm:col-span-2">
         <ChartPlaceholder label="HY vs IG Spreads" tall />
       </div>
-      <div className="col-span-4 px-0 pt-2">
+      <div className="col-span-1 sm:col-span-2 lg:col-span-4 pt-2">
         <div
           className="rounded-xl p-5"
           style={{ background: 'var(--raised)', border: '1px solid var(--line)' }}
         >
           <span className="section-label mb-3 block">Key Risks</span>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {['Covenant erosion in leveraged loans', 'Illiquidity premium compression', 'Refinancing wall 2025–2026'].map(r => (
               <div key={r} className="flex items-start gap-2">
                 <span className="w-1 h-1 rounded-full mt-1.5 shrink-0" style={{ background: 'var(--coral)' }} />
@@ -190,13 +189,13 @@ function YenCarry() {
       <StatCard label="JPY Net Position"  sub="CFTC speculative positioning" color="var(--taupe)" />
       <StatCard label="JPY Volatility"    sub="1M implied vol"               color="var(--sage)"  />
       <StatCard label="Carry Return"      sub="Rolling 3M carry P&L"        color="var(--amber)" />
-      <div className="col-span-4">
+      <div className="col-span-1 sm:col-span-2 lg:col-span-4">
         <ChartPlaceholder label="USD/JPY — 2Y History" tall />
       </div>
-      <div className="col-span-2">
+      <div className="col-span-1 sm:col-span-2">
         <ChartPlaceholder label="Rate Differential" />
       </div>
-      <div className="col-span-2">
+      <div className="col-span-1 sm:col-span-2">
         <ChartPlaceholder label="CFTC JPY Positioning" />
       </div>
     </SectionWrap>
@@ -212,13 +211,13 @@ function Volatility() {
       <StatCard label="VIX3M"            sub="3-month VIX"                  color="var(--taupe)" />
       <StatCard label="Put/Call Ratio"   sub="Equity options"               color="var(--sage)"  />
       <StatCard label="VVIX"             sub="Vol of vol"                   color="var(--cream)" />
-      <div className="col-span-4">
+      <div className="col-span-1 sm:col-span-2 lg:col-span-4">
         <ChartPlaceholder label="VIX — 2Y History" tall />
       </div>
-      <div className="col-span-2">
+      <div className="col-span-1 sm:col-span-2">
         <ChartPlaceholder label="MOVE Index" />
       </div>
-      <div className="col-span-2">
+      <div className="col-span-1 sm:col-span-2">
         <ChartPlaceholder label="VIX Term Structure" />
       </div>
     </SectionWrap>
@@ -234,13 +233,13 @@ function Refinancing() {
       <StatCard label="DXY"               sub="Dollar index"                color="var(--cream)" />
       <StatCard label="IG Maturity"        sub="Investment grade due 2025"  color="var(--taupe)" />
       <StatCard label="SOFR"              sub="Secured overnight rate"      color="var(--sage)"  />
-      <div className="col-span-4">
+      <div className="col-span-1 sm:col-span-2 lg:col-span-4">
         <ChartPlaceholder label="Corporate Debt Maturity Profile" tall />
       </div>
-      <div className="col-span-2">
+      <div className="col-span-1 sm:col-span-2">
         <ChartPlaceholder label="HY Issuance vs Maturity" />
       </div>
-      <div className="col-span-2">
+      <div className="col-span-1 sm:col-span-2">
         <ChartPlaceholder label="Mortgage Rate History" />
       </div>
     </SectionWrap>
@@ -256,13 +255,13 @@ function Capex() {
       <StatCard label="Nvidia Revenue"     sub="Data centre segment"         color="var(--sage)"  />
       <StatCard label="AI Index"           sub="Global AI equity basket"    color="var(--cream)" />
       <StatCard label="SOX / SMH"          sub="Semiconductor index"         color="var(--taupe)" />
-      <div className="col-span-4">
+      <div className="col-span-1 sm:col-span-2 lg:col-span-4">
         <ChartPlaceholder label="Big Tech Capex — Quarterly" tall />
       </div>
-      <div className="col-span-2">
+      <div className="col-span-1 sm:col-span-2">
         <ChartPlaceholder label="AI vs Broader Market" />
       </div>
-      <div className="col-span-2">
+      <div className="col-span-1 sm:col-span-2">
         <ChartPlaceholder label="Power Demand Forecast" />
       </div>
     </SectionWrap>
@@ -278,13 +277,13 @@ function WarOil() {
       <StatCard label="CPI Energy"        sub="YoY energy component"        color="var(--coral)" />
       <StatCard label="Nat Gas"           sub="Henry Hub front-month"       color="var(--taupe)" />
       <StatCard label="Geopolitical Risk" sub="GPR index"                   color="var(--coral)" />
-      <div className="col-span-4">
+      <div className="col-span-1 sm:col-span-2 lg:col-span-4">
         <ChartPlaceholder label="WTI Crude — 2Y" tall />
       </div>
-      <div className="col-span-2">
+      <div className="col-span-1 sm:col-span-2">
         <ChartPlaceholder label="Gold vs Real Rates" />
       </div>
-      <div className="col-span-2">
+      <div className="col-span-1 sm:col-span-2">
         <ChartPlaceholder label="Energy vs Core CPI" />
       </div>
     </SectionWrap>
@@ -314,12 +313,13 @@ function SectionDock({
 }) {
   return (
     <div
-      className="sticky top-[64px] z-20 flex items-center gap-1 px-6 overflow-x-auto"
+      className="sticky z-20 flex items-center gap-1 px-6 overflow-x-auto"
       style={{
         background: 'var(--raised)',
         borderBottom: '1px solid var(--line)',
         scrollbarWidth: 'none',
         height: '52px',
+        top: 'var(--nav-h)',
       }}
     >
       {SECTIONS.map(({ id, label, Icon, color }) => {
@@ -357,7 +357,7 @@ export function MacroView() {
   const section = SECTIONS.find(s => s.id === active)!
 
   return (
-    <div className="min-h-screen pt-[64px]" style={{ background: 'var(--base)' }}>
+    <div className="min-h-screen" style={{ paddingTop: 'var(--nav-h)', background: 'var(--base)' }}>
       <SectionDock active={active} onSelect={setActive} />
 
       {/* Section header */}

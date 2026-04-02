@@ -223,7 +223,8 @@ const COL = 'text-[9px] font-bold tracking-[0.12em] uppercase'
 
 function TradeLog({ trades, onDelete }: { trades: Trade[]; onDelete: (id: string) => void }) {
   return (
-    <div>
+    <div className="overflow-x-auto">
+    <div style={{ minWidth: '800px' }}>
       {/* Column headers */}
       <div
         className="grid items-center px-5 py-2"
@@ -233,7 +234,7 @@ function TradeLog({ trades, onDelete }: { trades: Trade[]; onDelete: (id: string
           background: 'var(--raised)',
           borderBottom: '1px solid var(--line)',
           position: 'sticky',
-          top: '116px', // 64px nav + 52px sub-nav
+          top: 'calc(var(--nav-h) + 52px)', // nav + 52px tab-dock
           zIndex: 10,
         }}
       >
@@ -262,6 +263,7 @@ function TradeLog({ trades, onDelete }: { trades: Trade[]; onDelete: (id: string
           {trades.length} trades
         </div>
       )}
+    </div>
     </div>
   )
 }
@@ -314,9 +316,9 @@ function Analytics({ trades }: { trades: Trade[] }) {
   const range = maxR - minR || 1
 
   return (
-    <div className="p-6 grid gap-4" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+    <div className="p-4 md:p-6 grid gap-4 grid-cols-1 md:grid-cols-3">
       {/* Equity curve — full width */}
-      <div className="col-span-3 rounded-xl" style={{ background: 'var(--raised)', border: '1px solid var(--line)' }}>
+      <div className="col-span-1 md:col-span-3 rounded-xl" style={{ background: 'var(--raised)', border: '1px solid var(--line)' }}>
         <div className="px-5 pt-4 pb-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--line2)' }}>
           <span className="text-[9px] font-bold tracking-[0.12em] uppercase" style={{ color: 'var(--taupe)' }}>
             Equity Curve (R)
@@ -362,7 +364,7 @@ function Analytics({ trades }: { trades: Trade[] }) {
       </div>
 
       {/* Win rate by pair */}
-      <div className="col-span-2 rounded-xl" style={{ background: 'var(--raised)', border: '1px solid var(--line)' }}>
+      <div className="col-span-1 md:col-span-2 rounded-xl" style={{ background: 'var(--raised)', border: '1px solid var(--line)' }}>
         <div className="px-5 pt-4 pb-3" style={{ borderBottom: '1px solid var(--line2)' }}>
           <span className="text-[9px] font-bold tracking-[0.12em] uppercase" style={{ color: 'var(--taupe)' }}>
             Win Rate by Pair
@@ -432,11 +434,12 @@ function TabDock({ tab, onTab }: { tab: JournalTab; onTab: (t: JournalTab) => vo
   ]
   return (
     <div
-      className="sticky top-[64px] z-20 flex items-center justify-between px-5"
+      className="sticky z-20 flex items-center justify-between px-5"
       style={{
         height: '52px',
         background: 'var(--raised)',
         borderBottom: '1px solid var(--line)',
+        top: 'var(--nav-h)',
       }}
     >
       <div className="flex items-center gap-1">
@@ -510,7 +513,7 @@ export function JournalView() {
   )
 
   return (
-    <div className="min-h-screen pt-[64px]" style={{ background: 'var(--base)' }}>
+    <div className="min-h-screen" style={{ paddingTop: 'var(--nav-h)', background: 'var(--base)' }}>
       <TabDock tab={tab} onTab={setTab} />
       <StatsBar stats={stats} />
 
