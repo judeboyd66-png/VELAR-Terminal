@@ -1,3 +1,5 @@
+import { supabase } from './supabase'
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type TradeResult    = 'Win' | 'Loss' | 'BE'
@@ -7,43 +9,43 @@ export type Session        = 'London' | 'New York' | 'Asia' | 'Overlap'
 
 export interface Trade {
   id:           string
-  date:         string          // YYYY-MM-DD
-  time?:        string          // HH:MM
-  pair:         string          // EURUSD, BTCUSD, etc.
+  date:         string
+  time?:        string
+  pair:         string
   direction:    TradeDirection
   timeframe?:   Timeframe
   session?:     Session
   entry?:       number
   sl?:          number
   tp?:          number
-  riskPct?:     number          // % account risked
-  rrPlanned?:   number          // planned RR
-  rrAchieved?:  number          // actual RR
-  pnlR?:        number          // P&L in R multiples
+  riskPct?:     number
+  rrPlanned?:   number
+  rrAchieved?:  number
+  pnlR?:        number
   result:       TradeResult
-  setup?:       string          // e.g. "BOS + FVG retest"
+  setup?:       string
   notes?:       string
   tags?:        string[]
-  screenshot?:  string          // base64 data URL of chart image
+  screenshot?:  string          // base64 data URL
   createdAt:    string
 }
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
 export interface JournalStats {
-  totalTrades:    number
-  wins:           number
-  losses:         number
-  breakEvens:     number
-  winRate:        number         // percentage
-  profitFactor:   number
-  totalR:         number
-  avgWin:         number
-  avgLoss:        number
-  bestTrade:      number
-  worstTrade:     number
-  streak:         number         // positive = win streak, negative = loss streak
-  avgRR:          number
+  totalTrades:  number
+  wins:         number
+  losses:       number
+  breakEvens:   number
+  winRate:      number
+  profitFactor: number
+  totalR:       number
+  avgWin:       number
+  avgLoss:      number
+  bestTrade:    number
+  worstTrade:   number
+  streak:       number
+  avgRR:        number
 }
 
 export function calcStats(trades: Trade[]): JournalStats {
@@ -61,7 +63,6 @@ export function calcStats(trades: Trade[]): JournalStats {
   const winRate = (wins.length + losses.length) > 0
     ? (wins.length / (wins.length + losses.length)) * 100 : 0
 
-  // current streak (most recent trades first)
   let streak = 0
   const sorted = [...closed].sort((a, b) => b.date.localeCompare(a.date))
   if (sorted.length) {
@@ -82,7 +83,7 @@ export function calcStats(trades: Trade[]): JournalStats {
     wins:        wins.length,
     losses:      losses.length,
     breakEvens:  bes.length,
-    winRate:     winRate,
+    winRate,
     profitFactor: pf,
     totalR,
     avgWin,
@@ -94,40 +95,91 @@ export function calcStats(trades: Trade[]): JournalStats {
   }
 }
 
-// ─── localStorage persistence ─────────────────────────────────────────────────
+// ─── DB mapping ───────────────────────────────────────────────────────────────
 
-const KEY = 'velar-journal'
-
-export function loadTrades(): Trade[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const raw = localStorage.getItem(KEY)
-    if (!raw) return []
-    return JSON.parse(raw) as Trade[]
-  } catch { return [] }
-}
-
-export function saveTrades(trades: Trade[]): void {
-  if (typeof window === 'undefined') return
-  localStorage.setItem(KEY, JSON.stringify(trades))
-}
-
-export function addTrade(trade: Omit<Trade, 'id' | 'createdAt'>): Trade {
-  const full: Trade = {
-    ...trade,
-    id: `t_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-    createdAt: new Date().toISOString(),
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function dbToTrade(row: any): Trade {
+  return {
+    id:          row.id,
+    date:        row.date,
+    time:        row.time,
+    pair:        row.pair,
+    direction:   row.direction,
+    timeframe:   row.timeframe,
+    session:     row.session,
+    entry:       row.entry,
+    sl:          row.sl,
+    tp:          row.tp,
+    riskPct:     row.risk_pct,
+    rrPlanned:   row.rr_planned,
+    rrAchieved:  row.rr_achieved,
+    pnlR:        row.pnl_r,
+    result:      row.result,
+    setup:       row.setup,
+    notes:       row.notes,
+    tags:        row.tags,
+    screenshot:  row.screenshot,
+    createdAt:   row.created_at,
   }
-  const all = loadTrades()
-  saveTrades([full, ...all])
-  return full
 }
 
-export function deleteTrade(id: string): void {
-  saveTrades(loadTrades().filter(t => t.id !== id))
+function tradeToDb(trade: Omit<Trade, 'createdAt'>) {
+  return {
+    id:          trade.id,
+    date:        trade.date,
+    time:        trade.time ?? null,
+    pair:        trade.pair,
+    direction:   trade.direction,
+    timeframe:   trade.timeframe ?? null,
+    session:     trade.session ?? null,
+    entry:       trade.entry ?? null,
+    sl:          trade.sl ?? null,
+    tp:          trade.tp ?? null,
+    risk_pct:    trade.riskPct ?? null,
+    rr_planned:  trade.rrPlanned ?? null,
+    rr_achieved: trade.rrAchieved ?? null,
+    pnl_r:       trade.pnlR ?? null,
+    result:      trade.result,
+    setup:       trade.setup ?? null,
+    notes:       trade.notes ?? null,
+    tags:        trade.tags ?? null,
+    screenshot:  trade.screenshot ?? null,
+    // user_id is injected automatically by Supabase RLS from auth.uid()
+  }
 }
 
-// ─── Demo seed data ───────────────────────────────────────────────────────────
+// ─── Supabase CRUD ────────────────────────────────────────────────────────────
+
+export async function loadTrades(): Promise<Trade[]> {
+  const { data, error } = await supabase
+    .from('trades')
+    .select('*')
+    .order('date', { ascending: false })
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map(dbToTrade)
+}
+
+export async function addTrade(trade: Omit<Trade, 'id' | 'createdAt'>): Promise<Trade> {
+  const id = `t_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+  const { data, error } = await supabase
+    .from('trades')
+    .insert([tradeToDb({ ...trade, id })])
+    .select()
+    .single()
+  if (error) throw error
+  return dbToTrade(data)
+}
+
+export async function deleteTrade(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('trades')
+    .delete()
+    .eq('id', id)
+  if (error) throw error
+}
+
+// ─── Demo seed (for display purposes only — not saved to DB) ─────────────────
 
 export const DEMO_TRADES: Trade[] = [
   {
@@ -135,7 +187,7 @@ export const DEMO_TRADES: Trade[] = [
     direction: 'Long', timeframe: '1H', session: 'London',
     entry: 1.0842, sl: 1.0815, tp: 1.0896,
     riskPct: 1, rrPlanned: 2, rrAchieved: 2.0, pnlR: 2.0,
-    result: 'Win', setup: 'BOS + FVG retest', notes: 'Clean institutional sweep at NY open, textbook entry.',
+    result: 'Win', setup: 'BOS + FVG retest', notes: 'Clean institutional sweep at NY open.',
     createdAt: new Date().toISOString(),
   },
   {
@@ -143,7 +195,7 @@ export const DEMO_TRADES: Trade[] = [
     direction: 'Short', timeframe: '4H', session: 'New York',
     entry: 19840, sl: 19920, tp: 19680,
     riskPct: 1, rrPlanned: 2, rrAchieved: 2.0, pnlR: 2.0,
-    result: 'Win', setup: 'HTF resistance + LTF CHoCH', notes: 'FOMC reaction play. DXY strength.',
+    result: 'Win', setup: 'HTF resistance + LTF CHoCH', notes: 'FOMC reaction play.',
     createdAt: new Date().toISOString(),
   },
   {
@@ -151,63 +203,7 @@ export const DEMO_TRADES: Trade[] = [
     direction: 'Short', timeframe: '1H', session: 'London',
     entry: 1.2965, sl: 1.3005, tp: 1.2885,
     riskPct: 0.5, rrPlanned: 2, rrAchieved: -1, pnlR: -1.0,
-    result: 'Loss', setup: 'Supply zone rejection', notes: 'SL hit before continuation. Structure held but timing off.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'demo_4', date: '2026-03-18', time: '03:00', pair: 'USDJPY',
-    direction: 'Long', timeframe: '4H', session: 'Asia',
-    entry: 149.20, sl: 148.85, tp: 149.90,
-    riskPct: 1, rrPlanned: 2, rrAchieved: 2.0, pnlR: 2.0,
-    result: 'Win', setup: 'Demand zone + Asia liquidity grab', notes: 'BoJ hold expected. Carry trade strength.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'demo_5', date: '2026-03-17', time: '09:30', pair: 'XAUUSD',
-    direction: 'Long', timeframe: 'D', session: 'London',
-    entry: 3085, sl: 3060, tp: 3135,
-    riskPct: 1.5, rrPlanned: 2, rrAchieved: 2.0, pnlR: 3.0,
-    result: 'Win', setup: 'Weekly OB continuation', notes: 'Macro tailwind — rate cut bets + safe haven bid.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'demo_6', date: '2026-03-14', time: '13:15', pair: 'BTCUSD',
-    direction: 'Long', timeframe: '4H', session: 'New York',
-    entry: 82400, sl: 81200, tp: 84800,
-    riskPct: 1, rrPlanned: 2, rrAchieved: 0, pnlR: 0,
-    result: 'BE', setup: 'Range breakout retest', notes: 'Moved SL to BE after 1R. Price consolidated, no follow-through.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'demo_7', date: '2026-03-13', time: '16:00', pair: 'EURUSD',
-    direction: 'Short', timeframe: '1H', session: 'Overlap',
-    entry: 1.0901, sl: 1.0925, tp: 1.0853,
-    riskPct: 1, rrPlanned: 2, rrAchieved: -1, pnlR: -1.0,
-    result: 'Loss', setup: 'Supply + divergence', notes: 'NFP surprise reversed bias. Should have waited.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'demo_8', date: '2026-03-12', time: '10:00', pair: 'AUDUSD',
-    direction: 'Short', timeframe: '1H', session: 'London',
-    entry: 0.6285, sl: 0.6310, tp: 0.6235,
-    riskPct: 1, rrPlanned: 2, rrAchieved: 2.0, pnlR: 2.0,
-    result: 'Win', setup: 'Premium array + CHoCH', notes: 'RBA dovish pivot. Clean SMC setup.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'demo_9', date: '2026-03-11', time: '14:45', pair: 'NAS100',
-    direction: 'Long', timeframe: '1H', session: 'New York',
-    entry: 19420, sl: 19340, tp: 19580,
-    riskPct: 1, rrPlanned: 2, rrAchieved: 2.0, pnlR: 2.0,
-    result: 'Win', setup: 'Demand + liquidity sweep', notes: 'CPI beat. Tech strength on disinflation narrative.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'demo_10', date: '2026-03-10', time: '09:00', pair: 'USDJPY',
-    direction: 'Short', timeframe: '4H', session: 'London',
-    entry: 150.85, sl: 151.30, tp: 149.95,
-    riskPct: 0.5, rrPlanned: 2, rrAchieved: -1, pnlR: -0.5,
-    result: 'Loss', setup: 'HTF distribution', notes: 'BoJ intervention risk. Stopped out.',
+    result: 'Loss', setup: 'Supply zone rejection', notes: 'Stopped out before continuation.',
     createdAt: new Date().toISOString(),
   },
 ]

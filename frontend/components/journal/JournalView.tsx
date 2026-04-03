@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Trash2, BarChart2, List, TrendingUp, ImageIcon } from 'lucide-react'
-import { type Trade, type JournalStats, calcStats, loadTrades, saveTrades, addTrade, deleteTrade } from '@/lib/journal'
+import { Plus, Trash2, BarChart2, List, TrendingUp, ImageIcon, Lock } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import Link from 'next/link'
+import { type Trade, type JournalStats, calcStats, loadTrades, addTrade, deleteTrade } from '@/lib/journal'
+import { useAuth } from '@/app/providers'
 import { AddTradeModal } from './AddTradeModal'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -221,7 +224,7 @@ function TradeRow({ trade, onDelete }: { trade: Trade; onDelete: () => void }) {
 
 const COL = 'text-[9px] font-bold tracking-[0.12em] uppercase'
 
-function TradeLog({ trades, onDelete }: { trades: Trade[]; onDelete: (id: string) => void }) {
+function TradeLog({ trades, onDelete, loading }: { trades: Trade[]; onDelete: (id: string) => void; loading?: boolean }) {
   return (
     <div className="overflow-x-auto">
     <div style={{ minWidth: '800px' }}>
@@ -245,7 +248,11 @@ function TradeLog({ trades, onDelete }: { trades: Trade[]; onDelete: (id: string
 
       {/* Rows */}
       <AnimatePresence>
-        {trades.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-24">
+            <div className="live-dot" />
+          </div>
+        ) : trades.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3">
             <TrendingUp size={32} style={{ color: 'var(--t4)', opacity: 0.4 }} />
             <span className="text-[13px]" style={{ color: 'var(--t3)' }}>No trades logged yet</span>
@@ -427,7 +434,7 @@ function Analytics({ trades }: { trades: Trade[] }) {
 
 // ─── Tab dock ─────────────────────────────────────────────────────────────────
 
-function TabDock({ tab, onTab }: { tab: JournalTab; onTab: (t: JournalTab) => void }) {
+function TabDock({ tab, onTab, onAdd }: { tab: JournalTab; onTab: (t: JournalTab) => void; onAdd: (trade: Omit<Trade, 'id' | 'createdAt'>) => Promise<void> }) {
   const TABS: { id: JournalTab; label: string; Icon: React.ElementType }[] = [
     { id: 'log',       label: 'Trade Log',  Icon: List     },
     { id: 'analytics', label: 'Analytics',  Icon: BarChart2 },
@@ -465,11 +472,7 @@ function TabDock({ tab, onTab }: { tab: JournalTab; onTab: (t: JournalTab) => vo
 
       {/* Add trade */}
       <AddTradeModal
-        onAdd={trade => {
-          addTrade(trade)
-          // trigger re-render by forcing trades reload
-          window.dispatchEvent(new Event('journal-update'))
-        }}
+        onAdd={onAdd}
         trigger={
           <button
             className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-[12px] font-medium cursor-pointer outline-none transition-all"
@@ -490,31 +493,92 @@ function TabDock({ tab, onTab }: { tab: JournalTab; onTab: (t: JournalTab) => vo
 
 // ─── JournalView ──────────────────────────────────────────────────────────────
 
+// ─── Auth gate ────────────────────────────────────────────────────────────────
+
+function JournalAuthGate() {
+  return (
+    <div
+      className="flex flex-col items-center justify-center gap-5 py-32 px-6"
+      style={{ minHeight: 'calc(100vh - var(--nav-h))' }}
+    >
+      <div
+        className="flex items-center justify-center rounded-full"
+        style={{ width: 56, height: 56, background: 'var(--raised)', border: '1px solid var(--line)' }}
+      >
+        <Lock size={22} style={{ color: 'var(--t3)' }} />
+      </div>
+      <div className="text-center">
+        <p className="text-[15px] font-semibold mb-2" style={{ color: 'var(--t1)', letterSpacing: '-0.01em' }}>
+          Sign in to access your journal
+        </p>
+        <p className="text-[13px]" style={{ color: 'var(--t3)' }}>
+          Your trade log and analytics are private to your account.
+        </p>
+      </div>
+      <div className="flex items-center gap-3">
+        <Link
+          href="/signin"
+          className="px-5 py-2.5 rounded-md text-[13px] font-semibold no-underline transition-all"
+          style={{ background: 'var(--t1)', color: 'var(--base)' }}
+        >
+          Sign In
+        </Link>
+        <Link
+          href="/signup"
+          className="px-5 py-2.5 rounded-md text-[13px] font-medium no-underline transition-all"
+          style={{ background: 'var(--raised)', color: 'var(--t2)', border: '1px solid var(--line)' }}
+        >
+          Create Account
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+// ─── JournalView ──────────────────────────────────────────────────────────────
+
 export function JournalView() {
-  const [tab,    setTab]    = useState<JournalTab>('log')
-  const [trades, setTrades] = useState<Trade[]>([])
+  const { user, loading: authLoading } = useAuth()
+  const queryClient = useQueryClient()
+  const [tab, setTab] = useState<JournalTab>('log')
 
-  useEffect(() => {
-    setTrades(loadTrades())
-    const handler = () => setTrades(loadTrades())
-    window.addEventListener('journal-update', handler)
-    return () => window.removeEventListener('journal-update', handler)
-  }, [])
+  const { data: trades = [], isLoading } = useQuery({
+    queryKey: ['trades'],
+    queryFn:  loadTrades,
+    enabled:  !!user,
+  })
 
-  function handleDelete(id: string) {
-    deleteTrade(id)
-    setTrades(loadTrades())
+  async function handleDelete(id: string) {
+    await deleteTrade(id)
+    queryClient.invalidateQueries({ queryKey: ['trades'] })
   }
 
-  const stats = useMemo(() => calcStats(trades), [trades])
+  const stats  = useMemo(() => calcStats(trades), [trades])
   const sorted = useMemo(
     () => [...trades].sort((a, b) => b.date.localeCompare(a.date) || (b.time ?? '').localeCompare(a.time ?? '')),
     [trades]
   )
 
+  if (authLoading) return (
+    <div className="min-h-screen" style={{ paddingTop: 'var(--nav-h)', background: 'var(--base)' }} />
+  )
+
+  if (!user) return (
+    <div className="min-h-screen" style={{ paddingTop: 'var(--nav-h)', background: 'var(--base)' }}>
+      <JournalAuthGate />
+    </div>
+  )
+
   return (
     <div className="min-h-screen" style={{ paddingTop: 'var(--nav-h)', background: 'var(--base)' }}>
-      <TabDock tab={tab} onTab={setTab} />
+      <TabDock
+        tab={tab}
+        onTab={setTab}
+        onAdd={async trade => {
+          await addTrade(trade)
+          queryClient.invalidateQueries({ queryKey: ['trades'] })
+        }}
+      />
       <StatsBar stats={stats} />
 
       <AnimatePresence mode="wait">
@@ -525,8 +589,8 @@ export function JournalView() {
           exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.18 }}
         >
-          {tab === 'log'       && <TradeLog   trades={sorted} onDelete={handleDelete} />}
-          {tab === 'analytics' && <Analytics  trades={trades} />}
+          {tab === 'log'       && <TradeLog trades={sorted} onDelete={handleDelete} loading={isLoading} />}
+          {tab === 'analytics' && <Analytics trades={trades} />}
         </motion.div>
       </AnimatePresence>
     </div>

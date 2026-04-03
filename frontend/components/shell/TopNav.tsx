@@ -1,12 +1,21 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { auth } from '@/lib/auth'
+import { useAuth } from '@/app/providers'
 import { ThemeSwitcher } from './ThemeSwitcher'
 import { VelarMark } from '@/components/ui/VelarMark'
 import { NavDock } from './NavDock'
 
 export function TopNav() {
+  const router = useRouter()
+  const { user } = useAuth()
+
+  async function handleSignOut() {
+    await auth.signOut()
+    router.push('/')
+  }
   return (
     <nav
       className="fixed top-0 left-0 right-0 z-50 border-b px-4 py-3 md:grid md:items-center md:h-[64px] md:px-8 md:py-0"
@@ -69,15 +78,32 @@ export function TopNav() {
 
           <div className="hidden md:block w-px h-5" style={{ background: 'var(--line)' }} />
 
-          <button
-            onClick={() => auth.signOut()}
-            className="hidden md:block text-[12px] transition-colors outline-none cursor-pointer"
-            style={{ color: 'var(--t4)', background: 'transparent', border: 'none' }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--t2)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--t4)')}
-          >
-            Sign out
-          </button>
+          {user ? (
+            <>
+              <span className="hidden lg:block text-[11px] max-w-[120px] truncate" style={{ color: 'var(--t3)' }}>
+                {user.user_metadata?.name || user.email}
+              </span>
+              <button
+                onClick={handleSignOut}
+                className="hidden md:block text-[12px] transition-colors outline-none cursor-pointer"
+                style={{ color: 'var(--t4)', background: 'transparent', border: 'none' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--t2)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--t4)')}
+              >
+                Sign out
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/signin"
+              className="hidden md:block text-[12px] transition-colors no-underline"
+              style={{ color: 'var(--t3)' }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--t1)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--t3)')}
+            >
+              Sign in
+            </Link>
+          )}
         </div>
       </div>
 

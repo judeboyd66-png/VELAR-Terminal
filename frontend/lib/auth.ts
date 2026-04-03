@@ -1,40 +1,38 @@
-export interface VelarUser {
-  name: string
-  email: string
-  joinedAt: string
-}
+import { supabase } from './supabase'
+import type { User } from '@supabase/supabase-js'
 
-const KEY = 'velar-user'
+export type { User }
 
 export const auth = {
-  getUser: (): VelarUser | null => {
-    if (typeof window === 'undefined') return null
-    try {
-      const raw = localStorage.getItem(KEY)
-      return raw ? JSON.parse(raw) : null
-    } catch { return null }
+  signUp: async (name: string, email: string, password: string): Promise<User> => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name } },
+    })
+    if (error) throw error
+    if (!data.user) throw new Error('Sign up failed')
+    return data.user
   },
 
-  isAuthenticated: (): boolean => {
-    return !!auth.getUser()
+  signIn: async (email: string, password: string): Promise<User> => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) throw error
+    if (!data.user) throw new Error('Sign in failed')
+    return data.user
   },
 
-  signUp: (name: string, email: string): VelarUser => {
-    const user: VelarUser = { name, email, joinedAt: new Date().toISOString() }
-    localStorage.setItem(KEY, JSON.stringify(user))
+  signOut: async (): Promise<void> => {
+    await supabase.auth.signOut()
+  },
+
+  getUser: async (): Promise<User | null> => {
+    const { data: { user } } = await supabase.auth.getUser()
     return user
   },
 
-  signIn: (email: string): VelarUser | null => {
-    // Simple: check if email matches stored user
-    const user = auth.getUser()
-    if (user && user.email.toLowerCase() === email.toLowerCase()) return user
-    // In production this would be a real API call
-    return null
-  },
-
-  signOut: () => {
-    localStorage.removeItem(KEY)
-    window.location.href = '/'
+  getSession: async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    return session
   },
 }
